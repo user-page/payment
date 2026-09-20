@@ -1,0 +1,61 @@
+/**
+ * Biến thiết kế. Mọi màu sắc và bóng đổ trong app đều lấy từ đây —
+ * không hardcode mã màu ở file khác.
+ */
+
+:root {
+  /* nền và bề mặt */
+  --bg: #FFFFFF;
+  --surface: #F7F5EF;
+  --surface-raised: #FFFFFF;
+
+  /* chữ, từ đậm tới nhạt dần */
+  --ink: #2B2118;
+  --ink-muted: #6B5D4C;
+  --ink-faint: #9A8C77;
+
+  /* màu nhấn — cam đất, gợi quán nhậu */
+  --accent: #C97A1F;
+  --accent-strong: #A85E12;
+  --accent-tint: #F3DDB6;
+
+  /* đường kẻ */
+  --line: #E3DBC7;
+  --line-strong: #CFC3A5;
+
+  /* màu ngữ nghĩa: tốt / xấu */
+  --positive: #4F6F52;
+  --positive-tint: #E1EAE0;
+  --negative: #A23B2E;
+  --negative-tint: #F3DFDA;
+
+  --focus: #2B2118;
+  --shadow: 0 1px 2px rgba(43, 33, 24, 0.06), 0 6px 20px -8px rgba(43, 33, 24, 0.18);
+}
+
+/**
+ * App cố tình chỉ có một giao diện sáng.
+ *
+ * Bảng chia tiền cần đọc số nhanh và chính xác ngoài quán đông người, nền
+ * sáng cho tương phản tốt nhất. Khối dưới đây giữ lại để sau này muốn bật
+ * chế độ tối thì chỉ cần gắn data-theme="dark" vào thẻ gốc.
+ */
+:root[data-theme="dark"] {
+  --bg: #1C1712;
+  --surface: #241D16;
+  --surface-raised: #2B2319;
+  --ink: #F2E9D8;
+  --ink-muted: #B8A98F;
+  --ink-faint: #8A7B65;
+  --accent: #E3A345;
+  --accent-strong: #F0B968;
+  --accent-tint: #3D2E17;
+  --line: #3A2F23;
+  --line-strong: #4A3C2A;
+  --positive: #8FB491;
+  --positive-tint: #26301F;
+  --negative: #E08A78;
+  --negative-tint: #3A241E;
+  --focus: #F2E9D8;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px -8px rgba(0, 0, 0, 0.5);
+}
