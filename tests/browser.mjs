@@ -69,7 +69,7 @@ const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromi
 const IGNORE = /fonts\.googleapis|Failed to load resource/i;
 
 /** Mở một trang mới với Firebase giả. `configured:false` giữ nguyên config.js chưa điền. */
-async function openPage(path, { signedInAs = 'vthang1510@ctn.example.com', configured = true } = {}) {
+async function openPage(path, { signedInAs = 'vthang1510@ctn.example.com', configured = true, seed = SEED } = {}) {
   const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
   const errors = [];
   const note = (m) => { if (!IGNORE.test(m)) errors.push(m); };
@@ -98,7 +98,7 @@ async function openPage(path, { signedInAs = 'vthang1510@ctn.example.com', confi
         );
     r.fulfill({ response: res, body });
   });
-  await page.addInitScript(FAKE_ENV, { seed: SEED, signedInAs });
+  await page.addInitScript(FAKE_ENV, { seed, signedInAs });
   await page.goto(BASE + path);
   await page.waitForTimeout(600);
   return { page, errors };
@@ -160,6 +160,8 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.click('.tab-btn[data-tab="list"]');
   await page.waitForTimeout(200);
   check('kết quả tính theo số vừa gõ dù chưa lưu', (await page.textContent('#statTotal')) === '600');
+  check('dải thống kê chỉ hiện MỘT lần', (await page.locator('#tabList .stat-strip').count()) === 1,
+    `có ${await page.locator('#tabList .stat-strip').count()} dải`);
   check('chưa bấm Lưu thì database chưa bị ghi', (await writesTo(page, 'events/')).length === 0);
 
   // --- thêm người trong lúc còn bản nháp: bản nháp phải còn nguyên
@@ -195,6 +197,16 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.click('#discardBtn');
   await page.waitForTimeout(300);
   check('Huỷ trả ô về giá trị đã lưu', (await page.inputValue('#eventName')) === 'Ăn lòng tất niên');
+
+  // Huỷ phải trả CẢ chip về như đã lưu.
+  const chipHung = round1.locator('.toggle-chip', { hasText: 'HungNN14' });
+  check('chip đang bật trước khi thử Huỷ', await chipHung.evaluate((e) => e.classList.contains('is-on')));
+  await chipHung.click();
+  await page.click('#discardBtn');
+  await page.waitForTimeout(400);
+  check('Huỷ tải lại từ database -> chip về trạng thái đã lưu',
+    await round1.locator('.toggle-chip', { hasText: 'HungNN14' }).evaluate((e) => e.classList.contains('is-on')));
+  check('Huỷ không ghi gì xuống database', (await getDoc(page, 'events/e1')).rounds[0].thamGiaIds.includes('p2'));
 
   // --- thêm khoản chi: cả nhóm tham gia, người chia tiền trả
   await page.click('#addRoundBtn');
@@ -306,6 +318,47 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   const text = await page.textContent('#shareView');
   check('link tổng hợp liệt kê buổi của người đó', text.includes('Tổng hợp của vthang1510') && text.includes('Ăn lòng'));
   check('link tổng hợp không lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ================================== 3b. khoản chi chưa chọn ai trả
+{
+  // Xảy ra thật khi thêm khoản chi TRƯỚC lúc thêm người: nguoiTraId là rỗng.
+  const seed = structuredClone(SEED);
+  seed.docs['events/e1'].rounds.push({
+    id: 'r2', ten: 'Taxi', ngay: '2026-09-20', diaDiem: 'Taxi',
+    soTien: 300, nguoiTraId: null, thamGiaIds: ['p1', 'p2', 'p3'],
+  });
+
+  const { page, errors } = await openPage('index.html', { seed });
+  await page.click('.tab-btn[data-tab="edit"]');
+  await page.waitForTimeout(300);
+
+  const payer2 = page.locator('#roundsList .round-card').nth(1).locator('select');
+  check('khoản chưa chọn người trả -> ô để trống, KHÔNG tự hiện tên người đầu danh sách',
+    (await payer2.inputValue()) === '', `ô đang hiện: ${await payer2.inputValue()}`);
+  check('ô người trả có lựa chọn "chưa chọn"',
+    (await payer2.locator('option').first().textContent()).includes('chưa chọn'));
+
+  await page.click('.tab-btn[data-tab="list"]');
+  await page.waitForTimeout(300);
+  const body = await page.textContent('#resultsBody');
+  check('kết quả cảnh báo khoản chưa có người trả', body.includes('Chưa chọn ai trả cho'), body.slice(0, 120));
+  check('tiền khoản đó vẫn được chia (900+300 chia 3 = 400/người)', body.includes('400'));
+
+  // chọn người trả -> cảnh báo biến mất, tiền vào cột "đã trả"
+  await page.click('.tab-btn[data-tab="edit"]');
+  await payer2.selectOption({ label: 'HungNN14' });
+  await page.waitForTimeout(200);
+  await page.click('#saveBtn');
+  await page.waitForTimeout(600);
+  check('chọn người trả -> lưu đúng vào database',
+    (await getDoc(page, 'events/e1')).rounds[1].nguoiTraId === 'p2');
+
+  await page.click('.tab-btn[data-tab="list"]');
+  await page.waitForTimeout(300);
+  check('chọn xong -> hết cảnh báo', !(await page.textContent('#resultsBody')).includes('Chưa chọn ai trả cho'));
+  check('khoản chưa chọn người trả không gây lỗi JS', errors.length === 0, errors.join(' | '));
   await page.close();
 }
 

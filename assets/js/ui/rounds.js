@@ -102,10 +102,22 @@ function payerField(ev, r) {
     select.append(el('option', { textContent: '— chưa có người —' }));
     select.disabled = true;
   } else {
+    /*
+     * Khoản chưa chọn ai trả thì PHẢI có một lựa chọn rỗng đang được chọn.
+     *
+     * Không có nó, trình duyệt tự hiện tên người đầu tiên trong danh sách —
+     * ô nhìn như đã chọn xong trong khi dữ liệu vẫn trống, và số tiền khoản
+     * đó không được tính là ai đã trả cả. Tổng tiền vì thế lệch mà không rõ
+     * vì sao. (Xảy ra khi thêm khoản chi trước lúc thêm người, hoặc khi
+     * người đang trả bị xoá khỏi buổi.)
+     */
+    if (!ev.people.some((p) => p.id === r.nguoiTraId)) {
+      select.append(el('option', { value: '', textContent: '— chưa chọn —', selected: true }));
+    }
     for (const p of ev.people) {
       select.append(el('option', { value: p.id, textContent: p.name, selected: p.id === r.nguoiTraId }));
     }
-    select.addEventListener('change', () => editRound(r.id, { nguoiTraId: select.value }));
+    select.addEventListener('change', () => editRound(r.id, { nguoiTraId: select.value || null }));
   }
 
   return el('div', { class: 'field' }, [
@@ -123,6 +135,18 @@ function participantChips(ev, r) {
 
   const chips = el('div', { class: 'toggle-chips' });
 
+  /*
+   * Bản sao riêng, KHÔNG sửa thẳng vào `r`.
+   *
+   * Khi chưa có thay đổi nào chờ lưu, effectiveEvent() trả về đúng object đã
+   * lưu chứ không phải bản sao — sửa vào đó là ghi đè dữ liệu gốc, khiến bấm
+   * "Huỷ thay đổi" không trả về được như cũ.
+   */
+  let ids = [...r.thamGiaIds];
+  const updateLabel = () => {
+    label.textContent = `Người tham gia khoản này (${ids.length}/${ev.people.length})`;
+  };
+
   if (!ev.people.length) {
     chips.append(
       el('span', {
@@ -133,10 +157,9 @@ function participantChips(ev, r) {
   }
 
   for (const p of ev.people) {
-    const on = r.thamGiaIds.includes(p.id);
     const chip = el('button', {
       type: 'button',
-      class: `toggle-chip${on ? ' is-on' : ''}`,
+      class: `toggle-chip${ids.includes(p.id) ? ' is-on' : ''}`,
       textContent: p.name,
     });
 
@@ -148,9 +171,9 @@ function participantChips(ev, r) {
      */
     chip.addEventListener('click', () => {
       const nowOn = chip.classList.toggle('is-on');
-      r.thamGiaIds = nowOn ? [...r.thamGiaIds, p.id] : r.thamGiaIds.filter((id) => id !== p.id);
-      label.textContent = `Người tham gia khoản này (${r.thamGiaIds.length}/${ev.people.length})`;
-      editParticipants(r.id, r.thamGiaIds);
+      ids = nowOn ? [...ids, p.id] : ids.filter((id) => id !== p.id);
+      updateLabel();
+      editParticipants(r.id, ids);
     });
 
     chips.append(chip);

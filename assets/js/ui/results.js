@@ -82,7 +82,9 @@ export function renderResults() {
   }
 
   body.innerHTML =
-    eventResultsHtml(ev, { interactive: true, extraHtml: organizerQrHtml(ev) }) +
+    // withStats:false — tab này đã có sẵn dải thống kê riêng trong index.html
+    // (setStats() điền vào), thêm lần nữa là hiện hai dải giống hệt nhau.
+    eventResultsHtml(ev, { interactive: true, extraHtml: organizerQrHtml(ev), withStats: false }) +
     `<div class="results-footer">
        <span class="toast" id="copyToast">Đã sao chép</span>
        <button class="btn btn-ghost btn-small" id="shareBtn" type="button">Chia sẻ (chỉ xem)</button>

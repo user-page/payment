@@ -86,6 +86,23 @@ export function unpaidSponsorNote(ev) {
 }
 
 /**
+ * Cảnh báo khoản chi chưa chọn ai trả.
+ *
+ * Tiền của khoản đó vẫn được chia cho người tham gia, nhưng không được cộng
+ * vào cột "đã trả" của ai — nên bảng nhìn như thiếu tiền. Nói thẳng ra thay
+ * vì để người dùng tự đoán.
+ */
+export function noPayerNote(ev) {
+  const orphans = (ev.rounds || []).filter(
+    (r) => (r.soTien || 0) > 0 && !ev.people.some((p) => p.id === r.nguoiTraId)
+  );
+  if (!orphans.length) return '';
+
+  const names = orphans.map((r) => `${escapeHtml(r.ten || 'khoản chưa đặt tên')} (${fmtNum(r.soTien)})`).join(', ');
+  return `<div class="sponsor-debt-note is-warning">Chưa chọn ai trả cho: ${names} — số tiền này chưa được tính là ai đã trả, nên cột "đã trả" đang thiếu. Chọn "Người trả" ở tab Chỉnh sửa.</div>`;
+}
+
+/**
  * Danh sách chuyển khoản.
  * @param {boolean} interactive true thì hiện ô nhập tiền đã trả và nút bấm được
  */
@@ -139,7 +156,7 @@ function settlementList(ev, settlement, interactive) {
  * @param {boolean} [opts.interactive=false] cho phép sửa trạng thái trả tiền
  * @param {string}  [opts.extraHtml=''] chèn thêm vào mục chuyển khoản (VD: ảnh QR)
  */
-export function eventResultsHtml(ev, { interactive = false, extraHtml = '' } = {}) {
+export function eventResultsHtml(ev, { interactive = false, extraHtml = '', withStats = true } = {}) {
   if (!ev.people?.length || !ev.rounds?.length) {
     return '<div class="empty-state">Buổi này chưa có đủ dữ liệu để hiển thị.</div>';
   }
@@ -151,7 +168,8 @@ export function eventResultsHtml(ev, { interactive = false, extraHtml = '' } = {
   const settlement = computeSettlement(ev, summary);
 
   return `<section class="results-section">
-    ${statStrip(ev)}
+    ${withStats ? statStrip(ev) : ''}
+    ${noPayerNote(ev)}
     ${ledgerTable(ev, summary)}
     <div class="settlement-section">
       <h2 style="margin-top:0;">Cần chuyển khoản</h2>
