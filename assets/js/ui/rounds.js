@@ -68,8 +68,17 @@ function dateField(label, value, onChange) {
 }
 
 /**
- * Ô tiền: hiện số đã làm tròn khi không focus, cho gõ tự do khi đang nhập.
- * Chốt giá trị lúc rời ô để không cập nhật bản nháp sau mỗi phím.
+ * Ô tiền.
+ *
+ * Ghi vào bản nháp NGAY TỪNG PHÍM, giống ô tên khoản và địa điểm.
+ *
+ * Trước đây ô này chỉ ghi lúc rời ô, và có thêm một đoạn khi bấm vào ô thì
+ * nạp lại số từ lần vẽ gần nhất. Hai thứ đó cộng lại làm mất tiền: gõ xong,
+ * bấm ra ngoài, bấm vào lại là số vừa gõ bị xoá về số cũ; rời ô lần nữa thì
+ * số cũ đó ghi đè lên bản nháp. Bấm Cmd+S ngay khi còn đang gõ cũng mất, vì
+ * chưa có gì vào bản nháp cả.
+ *
+ * Chỉ chuẩn hoá lại cách hiện lúc rời ô — sửa giữa chừng sẽ nhảy con trỏ.
  */
 function moneyField(label, value, onChange) {
   const input = el('input', {
@@ -80,9 +89,7 @@ function moneyField(label, value, onChange) {
     value: value ? fmtNum(value) : '',
   });
 
-  input.addEventListener('focus', () => {
-    input.value = value ? String(value) : '';
-  });
+  input.addEventListener('input', () => onChange(parseMoney(input.value)));
   input.addEventListener('blur', () => {
     const parsed = parseMoney(input.value);
     input.value = parsed ? fmtNum(parsed) : '';

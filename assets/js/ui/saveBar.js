@@ -28,6 +28,10 @@ export function initSaveBar({ onAfterSave }) {
   window.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') {
       e.preventDefault();
+      // Chốt ô đang gõ dở trước đã: có ô chỉ ghi vào bản nháp lúc rời ô, bấm
+      // phím tắt ngay lúc con trỏ còn trong ô thì thứ vừa gõ chưa vào đâu cả.
+      // (Bấm nút Lưu bằng chuột thì ô tự rời trước khi nút nhận click.)
+      document.activeElement?.blur?.();
       if (isDirty()) handleSave();
     }
   });

@@ -5,7 +5,7 @@
  * xảy ra ngoài đời, không phải bản nháp đang soạn.
  */
 import { byId, el, copyText, showQrModal } from '../utils/dom.js';
-import { fmtNum, escapeHtml } from '../utils/format.js';
+import { fmtNum, parseMoney, escapeHtml } from '../utils/format.js';
 import {
   computeSummary,
   computeSettlement,
@@ -134,7 +134,13 @@ function wireResultActions(ev) {
   for (const input of byId('resultsBody').querySelectorAll('.paid-amount-input')) {
     input.addEventListener('change', () => {
       input.disabled = true;
-      actions.onSetPaidAmount(input.dataset.personId, input.value, Number(input.dataset.amount) || 0);
+      // parseMoney: ô này là ô chữ (đã bỏ nút tăng/giảm), người dùng có thể gõ
+      // "1.200" hay "1 200" — lọc lấy chữ số thay vì để Number() ra NaN.
+      actions.onSetPaidAmount(
+        input.dataset.personId,
+        parseMoney(input.value),
+        Number(input.dataset.amount) || 0
+      );
     });
   }
 }

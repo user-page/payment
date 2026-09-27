@@ -157,6 +157,17 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
 
   await chipPhong.click(); // tắt lại để kiểm tra lúc Lưu
 
+  // Ô tiền: bấm ra rồi bấm vào lại KHÔNG được xoá số vừa gõ.
+  await money.click();
+  await page.waitForTimeout(150);
+  check('bấm lại vào ô tiền -> số vừa gõ còn nguyên', (await money.inputValue()) === '600',
+    await money.inputValue());
+  await money.blur();
+  await page.waitForTimeout(150);
+  check('rời ô lần nữa -> bản nháp vẫn giữ số mới, không thêm thay đổi lạ',
+    (await page.textContent('#saveStatus')).includes('3 thay đổi'),
+    await page.textContent('#saveStatus'));
+
   await page.click('.tab-btn[data-tab="list"]');
   await page.waitForTimeout(200);
   check('kết quả tính theo số vừa gõ dù chưa lưu', (await page.textContent('#statTotal')) === '600');
@@ -318,6 +329,48 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   const text = await page.textContent('#shareView');
   check('link tổng hợp liệt kê buổi của người đó', text.includes('Tổng hợp của vthang1510') && text.includes('Ăn lòng'));
   check('link tổng hợp không lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ============ 2b. gõ tiền rồi bấm Cmd+S ngay, con trỏ còn trong ô
+{
+  const { page, errors } = await openPage('index.html');
+  await page.click('.tab-btn[data-tab="edit"]');
+  await page.waitForTimeout(300);
+
+  const money = page.locator('#roundsList .money-input').first();
+  await money.click();
+  await money.fill('1734');
+  // KHÔNG blur — bấm phím tắt ngay lúc con trỏ vẫn trong ô.
+  await page.keyboard.press('Control+s');
+  await page.waitForTimeout(800);
+
+  check('gõ tiền rồi Cmd+S ngay -> vẫn lưu được xuống database',
+    (await getDoc(page, 'events/e1')).rounds[0].soTien === 1734,
+    String((await getDoc(page, 'events/e1')).rounds[0].soTien));
+  check('Cmd+S xong thanh Lưu biến mất', await page.locator('#saveBar').isHidden());
+  check('gõ tiền + Cmd+S không lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ======================= 2c. ô "đã trả" không còn nút tăng/giảm từng đơn vị
+{
+  const { page, errors } = await openPage('index.html');
+  await page.click('.tab-btn[data-tab="list"]');
+  await page.waitForTimeout(400);
+
+  const paid = page.locator('.paid-amount-input').first();
+  check('ô "đã trả" là ô chữ, không phải ô số có nút +1/-1',
+    (await paid.getAttribute('type')) === 'text', await paid.getAttribute('type'));
+
+  // Gõ có dấu chấm ngăn nghìn vẫn phải hiểu đúng, không thành 0.
+  await paid.fill('1.200');
+  await paid.blur();
+  await page.waitForTimeout(700);
+  check('ô "đã trả" hiểu được số có dấu ngăn nghìn',
+    (await getDoc(page, 'events/e1')).people.find((p) => p.paidAmount === 1200) !== undefined,
+    JSON.stringify((await getDoc(page, 'events/e1')).people.map((p) => p.paidAmount)));
+  check('ô "đã trả" không lỗi JS', errors.length === 0, errors.join(' | '));
   await page.close();
 }
 

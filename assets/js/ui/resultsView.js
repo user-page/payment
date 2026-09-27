@@ -132,7 +132,7 @@ function settlementList(ev, settlement, interactive) {
       return `<div class="settlement-row">
         ${who}${amount}
         <span class="paid-amount-wrap">
-          <input type="number" min="0" step="1" class="paid-amount-input"
+          <input type="text" inputmode="numeric" class="paid-amount-input money-input"
                  id="paid-input-${statusPersonId}"
                  data-person-id="${statusPersonId}" data-amount="${s.amount}"
                  value="${paidAmount || ''}" placeholder="Đã trả bao nhiêu"
