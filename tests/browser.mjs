@@ -40,7 +40,7 @@ const SEED = {
 };
 
 /** Chạy TRONG trình duyệt, trước mọi script của trang: dựng kho dữ liệu giả. */
-function FAKE_ENV({ seed, signedInAs }) {
+function FAKE_ENV({ seed, signedInAs, filterlessDenied }) {
   const users = structuredClone(seed.users);
   const docs = new Map(Object.entries(structuredClone(seed.docs)));
   const listeners = [];
@@ -54,7 +54,7 @@ function FAKE_ENV({ seed, signedInAs }) {
 
   window.__writes = [];
   window.__docs = docs;
-  window.__fake = { users, docs, listeners, auth, setUser };
+  window.__fake = { users, docs, listeners, auth, setUser, filterlessDenied };
 }
 
 // ------------------------------------------------------------------ chạy test
@@ -69,13 +69,14 @@ const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromi
 const IGNORE = /fonts\.googleapis|Failed to load resource/i;
 
 /** Mở một trang mới với Firebase giả. `configured:false` giữ nguyên config.js chưa điền. */
-async function openPage(path, { signedInAs = 'vthang1510@ctn.example.com', configured = true, seed = SEED } = {}) {
+async function openPage(path, { signedInAs = 'vthang1510@ctn.example.com', configured = true, seed = SEED, filterlessDenied = false } = {}) {
   const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
   const errors = [];
+  const dialogs = [];
   const note = (m) => { if (!IGNORE.test(m)) errors.push(m); };
   page.on('pageerror', (e) => note(e.message));
   page.on('console', (m) => { if (m.type() === 'error') note(m.text()); });
-  page.on('dialog', (d) => d.accept());
+  page.on('dialog', (d) => { dialogs.push(d.message()); d.accept(); });
 
   await page.route('**/fonts.googleapis.com/**', (r) => r.abort());
   await page.route('**/www.gstatic.com/firebasejs/**', (r) => {
@@ -98,10 +99,10 @@ async function openPage(path, { signedInAs = 'vthang1510@ctn.example.com', confi
         );
     r.fulfill({ response: res, body });
   });
-  await page.addInitScript(FAKE_ENV, { seed, signedInAs });
+  await page.addInitScript(FAKE_ENV, { seed, signedInAs, filterlessDenied });
   await page.goto(BASE + path);
   await page.waitForTimeout(600);
-  return { page, errors };
+  return { page, errors, dialogs };
 }
 
 const writesTo = (page, prefix) =>
@@ -457,6 +458,19 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   const status = await page.textContent('#debtStatus');
   check('lỗi quyền truy cập hiện ra chứ không im lặng trống trơn',
     status.includes('không có quyền đọc') && status.includes('firestore.rules'), status);
+  await page.close();
+}
+
+// ==== 2g. rules chặn truy vấn admin -> phải BÁO LỖI, không im lặng hiện thiếu
+{
+  const { page, dialogs } = await openPage('index.html', { filterlessDenied: true });
+  await page.waitForTimeout(1000);
+
+  // Lùi lặng lẽ về "chỉ buổi của mình" sẽ giấu mất việc firestore.rules sai —
+  // đúng thứ đã làm tab "Ai chưa trả" trống mà không ai biết vì sao.
+  const alerted = dialogs.join(' | ');
+  check('rules chặn truy vấn admin -> hiện lỗi nói rõ cần xem lại Rules',
+    alerted.includes('không có quyền đọc') && alerted.includes('firestore.rules'), alerted);
   await page.close();
 }
 

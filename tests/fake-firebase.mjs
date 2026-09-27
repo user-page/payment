@@ -83,6 +83,14 @@ export async function getDocs(q) {
   maybeFail();
   const name = q.name;
   const filters = q.filters || [];
+
+  // Firestore khong loc bot ket qua: truy van khong kem dieu kien loc bi tu
+  // choi nguyen ca truy van neu rules khong cho doc tat ca.
+  if (F.filterlessDenied && !filters.length) {
+    const e = new Error('Missing or insufficient permissions.');
+    e.code = 'permission-denied';
+    throw e;
+  }
   const docs = [...F.docs.keys()]
     .filter((p) => p.startsWith(name + '/'))
     .map(snapshot)

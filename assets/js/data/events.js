@@ -143,6 +143,16 @@ export async function listEvents() {
   const me = currentIdentity();
   if (!me) return [];
 
+  /*
+   * Admin hỏi TOÀN BỘ danh sách, không kèm điều kiện lọc.
+   *
+   * Firestore KHÔNG lọc bớt kết quả theo quy tắc — nó từ chối nguyên cả truy
+   * vấn nào mà nó không chứng minh được là an toàn. Nên truy vấn này chỉ chạy
+   * khi isAdmin() trong firestore.rules cũng đúng. Hai bên lệch nhau (VD:
+   * rules ghi email thật thay vì email ẩn của cơ chế đăng nhập-bằng-tên) là
+   * hỏng, và hỏng ở đây hiện ra thành thông báo lỗi chứ không lùi lặng lẽ về
+   * danh sách của riêng mình — lùi lặng lẽ thì không ai biết rules đang sai.
+   */
   const q = me.isAdmin
     ? collection(db, 'events')
     : query(collection(db, 'events'), where('ownerId', '==', me.id));

@@ -21,9 +21,20 @@ service cloud.firestore {
       return request.auth.token.email.split('@')[0];
     }
 
-    // Sửa dòng này nếu đổi ADMIN_USERNAME hoặc LOGIN_EMAIL_DOMAIN trong config.js.
+    /*
+     * Admin. So theo TÊN ĐĂNG NHẬP, không so theo cả email.
+     *
+     * App không bao giờ đăng nhập bằng email thật (Gmail...). Đăng nhập
+     * chỉ-bằng-tên đổi tên `vthang1510` thành email ẩn
+     * `vthang1510@ctn.example.com` — xem LOGIN_EMAIL_DOMAIN trong config.js.
+     * Điền email thật vào đây là isAdmin() luôn sai, và tab "Ai chưa trả"
+     * sẽ trống vì truy vấn toàn bộ danh sách buổi bị Firestore từ chối.
+     *
+     * So theo tên như dưới đây thì đổi LOGIN_EMAIL_DOMAIN cũng không gãy.
+     * Chỉ cần khớp với ADMIN_USERNAME trong config.js.
+     */
     function isAdmin() {
-      return signedIn() && request.auth.token.email == 'vthang1510@ctn.example.com';
+      return signedIn() && myUsername() == 'vthang1510';
     }
 
     function owns(data) {
