@@ -32,11 +32,19 @@ async function computeDebt() {
       if (ev) events.push(ev);
     }
 
-    status.textContent = '';
+    // Buổi chưa chọn người chia tiền thì không quy được nợ về ai — nói rõ ra,
+    // vì nếu không, bảng trống trơn nhìn y như "không ai nợ gì".
+    const skipped = events.filter((ev) => !ev.organizerId);
+    status.textContent = skipped.length
+      ? `Bỏ qua ${skipped.length} buổi chưa chọn người đứng ra chia tiền: ${skipped
+          .map((ev) => ev.name || 'buổi chưa đặt tên')
+          .join(', ')}`
+      : '';
+
     body.innerHTML = debtTableHtml(aggregateUnpaidDebts(events));
   } catch (err) {
     console.error('computeDebt', err);
-    status.textContent = 'Có lỗi khi tính tổng nợ, thử lại.';
+    status.textContent = err.message || 'Có lỗi khi tính tổng nợ, thử lại.';
   } finally {
     btn.disabled = false;
   }

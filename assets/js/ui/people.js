@@ -41,7 +41,7 @@ export function initPeople(handlers) {
   });
 
   byId('organizerSelect').addEventListener('change', (e) => {
-    editEvent({ organizerId: e.target.value });
+    editEvent({ organizerId: e.target.value || null });
   });
 
   byId('qrFileInput').addEventListener('change', handleQrFile);
@@ -94,9 +94,21 @@ function renderOrganizerPicker(ev) {
     return;
   }
   row.hidden = false;
-  select.innerHTML = ev.people
-    .map((p) => `<option value="${p.id}"${p.id === ev.organizerId ? ' selected' : ''}>${escapeHtml(p.name)}</option>`)
-    .join('');
+
+  /*
+   * Chưa chọn ai thì PHẢI có lựa chọn rỗng đang được chọn.
+   *
+   * Không có nó, trình duyệt tự hiện tên người đầu danh sách — nhìn như đã
+   * chọn xong trong khi dữ liệu vẫn trống. Hậu quả nặng hơn ô "người trả":
+   * buổi không có người chia tiền bị BỎ QUA hẳn ở tab "Ai chưa trả", và link
+   * chia sẻ chỉ hiện một dòng trống trơn.
+   */
+  const chosen = ev.people.some((p) => p.id === ev.organizerId);
+  select.innerHTML =
+    (chosen ? '' : '<option value="" selected>— chưa chọn —</option>') +
+    ev.people
+      .map((p) => `<option value="${p.id}"${p.id === ev.organizerId ? ' selected' : ''}>${escapeHtml(p.name)}</option>`)
+      .join('');
 }
 
 /** Ô chọn người tài trợ nằm ở mục khác nhưng lấy dữ liệu từ danh sách người. */
@@ -125,11 +137,27 @@ function renderQrList(ev) {
   }
   label.hidden = false;
 
-  for (const p of ev.people) {
+  /*
+   * Chỉ người đứng ra chia tiền mới cần QR: mọi người chuyển khoản về một
+   * đầu mối là họ, và bảng kết quả cũng chỉ hiện QR của người này. Cho tải
+   * QR của người khác chỉ tổ tốn công mà không ai nhìn thấy.
+   */
+  const organizer = ev.people.find((p) => p.id === ev.organizerId);
+  if (!organizer) {
+    list.append(
+      el('div', {
+        class: 'empty-state',
+        textContent: 'Chọn người đứng ra chia tiền ở trên rồi mới tải được ảnh QR.',
+      })
+    );
+    return;
+  }
+
+  for (const p of [organizer]) {
     const row = el('div', { class: 'qr-row' }, [
       el('span', {
         class: 'qr-name',
-        textContent: p.name + (p.id === ev.organizerId ? ' (chia tiền)' : ''),
+        textContent: `${p.name} (chia tiền)`,
       }),
     ]);
 

@@ -24,6 +24,24 @@ import {
 import { currentIdentity } from './identity.js';
 import { today } from '../utils/format.js';
 
+/**
+ * Ném lại lỗi Firebase kèm lời giải thích, thay vì nuốt đi rồi trả về rỗng.
+ *
+ * Nuốt lỗi làm màn hình trống trơn mà không ai biết vì sao — đặc biệt với lỗi
+ * quyền truy cập (quy tắc trong firestore.rules chưa đúng hoặc chưa đăng lên),
+ * thứ nhìn hệt như "không có dữ liệu".
+ */
+const rethrow = (what) => (err) => {
+  console.error(what, err);
+  if (err?.code === 'permission-denied') {
+    throw new Error(`${what}: không có quyền đọc. Kiểm tra lại phần Rules của Firestore (xem file firestore.rules).`);
+  }
+  if (err?.code === 'unavailable') {
+    throw new Error(`${what}: không kết nối được, kiểm tra mạng rồi thử lại.`);
+  }
+  throw new Error(`${what}: ${err?.message || err}`);
+};
+
 const eventRef = (id) => doc(db, 'events', id);
 export const qrRef = (personId) => doc(db, 'qrs', personId);
 const ownerRef = (username) => doc(db, 'owners', username);
@@ -129,19 +147,14 @@ export async function listEvents() {
     ? collection(db, 'events')
     : query(collection(db, 'events'), where('ownerId', '==', me.id));
 
-  try {
-    const snap = await getDocs(q);
-    return snap.docs
-      .map((d) => {
-        const { people, rounds, sponsors, ...summary } = toEvent(d.id, d.data());
-        return summary;
-      })
-      // Xếp ở máy người dùng: xếp trên Firestore kèm điều kiện lọc sẽ đòi tạo chỉ mục.
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  } catch (err) {
-    console.error('listEvents', err);
-    return [];
-  }
+  const snap = await getDocs(q).catch(rethrow('Không đọc được danh sách buổi nhậu'));
+  return snap.docs
+    .map((d) => {
+      const { people, rounds, sponsors, ...summary } = toEvent(d.id, d.data());
+      return summary;
+    })
+    // Xếp ở máy người dùng: xếp trên Firestore kèm điều kiện lọc sẽ đòi tạo chỉ mục.
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /**
@@ -149,13 +162,7 @@ export async function listEvents() {
  * @param {{withQr?: boolean}} opts  link chia sẻ công khai không cần (và không được đọc) QR
  */
 export async function loadEvent(eventId, { withQr = true } = {}) {
-  let snap;
-  try {
-    snap = await getDoc(eventRef(eventId));
-  } catch (err) {
-    console.error('loadEvent', err);
-    return null;
-  }
+  const snap = await getDoc(eventRef(eventId)).catch(rethrow('Không đọc được buổi nhậu'));
   if (!snap.exists()) return null;
 
   const ev = toEvent(snap.id, snap.data());
@@ -185,7 +192,7 @@ export async function loadPublicEvent(eventId) {
 
 /** Link chia sẻ tổng hợp: mọi buổi của một tên đăng nhập. */
 export async function loadPublicOwner(username) {
-  const snap = await getDoc(ownerRef(username));
+  const snap = await getDoc(ownerRef(username)).catch(rethrow('Không đọc được danh sách buổi của người này'));
   if (!snap.exists()) return { ownerUsername: username, events: [] };
 
   const ids = snap.data().eventIds || [];

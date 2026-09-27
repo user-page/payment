@@ -374,6 +374,92 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.close();
 }
 
+// ============================================= 2d. tab "Ai chưa trả"
+{
+  const { page, errors } = await openPage('index.html');
+  await page.click('.tab-btn[data-tab="debt"]');
+  await page.waitForTimeout(300);
+
+  await page.click('#calcDebtBtn');
+  await page.waitForTimeout(900);
+
+  const body = await page.textContent('#debtBody');
+  // Buổi mẫu: p1 trả 900, cả 3 cùng chia -> p2 và p3 mỗi người nợ p1 300.
+  check('tab Ai chưa trả: liệt kê được người còn nợ',
+    body.includes('HungNN14') && body.includes('PhongTH4'), body.slice(0, 200));
+  check('tab Ai chưa trả: đúng số tiền nợ', body.includes('300'), body.slice(0, 200));
+  check('tab Ai chưa trả: không báo lỗi', !(await page.textContent('#debtStatus')).includes('lỗi'),
+    await page.textContent('#debtStatus'));
+  check('tab Ai chưa trả: không lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ====== 2e. buổi chưa chọn người chia tiền: ô phải để trống, phải nói rõ
+{
+  const seed = structuredClone(SEED);
+  seed.docs['events/e1'].organizerId = null;
+
+  const { page, errors } = await openPage('index.html', { seed });
+  await page.click('.tab-btn[data-tab="edit"]');
+  await page.waitForTimeout(300);
+
+  const org = page.locator('#organizerSelect');
+  check('chưa chọn người chia tiền -> ô để trống, KHÔNG tự hiện tên người đầu',
+    (await org.inputValue()) === '', `ô đang hiện: ${await org.inputValue()}`);
+
+  check('chưa chọn người chia tiền -> chưa cho tải QR',
+    (await page.locator('#qrList .qr-row').count()) === 0 &&
+    (await page.textContent('#qrList')).includes('Chọn người đứng ra chia tiền'));
+
+  await page.click('.tab-btn[data-tab="debt"]');
+  await page.click('#calcDebtBtn');
+  await page.waitForTimeout(900);
+  check('tab Ai chưa trả nói rõ buổi nào bị bỏ qua',
+    (await page.textContent('#debtStatus')).includes('chưa chọn người đứng ra chia tiền'),
+    await page.textContent('#debtStatus'));
+
+  // chọn người chia tiền -> mọi thứ chạy lại bình thường
+  await page.click('.tab-btn[data-tab="edit"]');
+  await org.selectOption({ label: 'ThangLV11' });
+  await page.waitForTimeout(150);
+  await page.click('#saveBtn');
+  await page.waitForTimeout(800);
+  check('chọn xong -> lưu đúng người chia tiền',
+    (await getDoc(page, 'events/e1')).organizerId === 'p1');
+  check('chọn xong -> hiện đúng một ô tải QR của người chia tiền',
+    (await page.locator('#qrList .qr-row').count()) === 1 &&
+    (await page.textContent('#qrList')).includes('ThangLV11 (chia tiền)'));
+
+  await page.click('.tab-btn[data-tab="debt"]');
+  await page.click('#calcDebtBtn');
+  await page.waitForTimeout(900);
+  check('chọn xong -> tab Ai chưa trả hết bỏ qua, có dữ liệu',
+    (await page.textContent('#debtStatus')) === '' &&
+    (await page.textContent('#debtBody')).includes('HungNN14'));
+  check('buổi chưa chọn người chia tiền không lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ============ 2f. lỗi quyền truy cập phải hiện ra, không được nuốt
+{
+  const { page } = await openPage('index.html');
+  await page.click('.tab-btn[data-tab="debt"]');
+
+  // Giả lập đúng lỗi Firestore trả về khi quy tắc bảo mật chặn.
+  await page.evaluate(() => {
+    const err = new Error('Missing or insufficient permissions.');
+    err.code = 'permission-denied';
+    window.__fake.failNextRead = err;
+  });
+  await page.click('#calcDebtBtn');
+  await page.waitForTimeout(900);
+
+  const status = await page.textContent('#debtStatus');
+  check('lỗi quyền truy cập hiện ra chứ không im lặng trống trơn',
+    status.includes('không có quyền đọc') && status.includes('firestore.rules'), status);
+  await page.close();
+}
+
 // ================================== 3b. khoản chi chưa chọn ai trả
 {
   // Xảy ra thật khi thêm khoản chi TRƯỚC lúc thêm người: nguoiTraId là rỗng.

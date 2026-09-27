@@ -66,9 +66,21 @@ function snapshot(path) {
   return { id: path.split('/').pop(), exists: () => data !== undefined, data: () => clone(data) };
 }
 
-export async function getDoc(ref) { return snapshot(ref.path); }
+export async function getDoc(ref) { maybeFail(); return snapshot(ref.path); }
+
+/** Cho test ép một lượt đọc thất bại, giả lập quy tắc bảo mật chặn. */
+function maybeFail() {
+  const err = F.failNextRead;
+  if (err) {
+    F.failNextRead = null;
+    const e = new Error(err.message);
+    e.code = err.code;
+    throw e;
+  }
+}
 
 export async function getDocs(q) {
+  maybeFail();
   const name = q.name;
   const filters = q.filters || [];
   const docs = [...F.docs.keys()]

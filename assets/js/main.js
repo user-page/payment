@@ -151,7 +151,14 @@ async function handleSession(session) {
     setUser(user, isAdmin);
     renderUserBar();
     showScreen('app');
-    await refreshAndSelect();
+    try {
+      await refreshAndSelect();
+    } catch (err) {
+      // Không nuốt: lỗi quyền truy cập ở đây làm app trống trơn, người dùng
+      // tưởng mất hết dữ liệu.
+      console.error('refreshAndSelect', err);
+      window.alert(`Không tải được dữ liệu.\n\n${err.message}`);
+    }
     return;
   }
 
