@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Nhập dữ liệu cũ — Chia Tiền Nhậu</title>
+<link rel="stylesheet" href="../assets/css/tokens.css" />
+<link rel="stylesheet" href="../assets/css/base.css" />
+<link rel="stylesheet" href="../assets/css/components.css" />
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <p class="eyebrow">Công cụ một lần</p>
+    <h1 class="title">Nhập dữ liệu cũ</h1>
+    <p class="subtitle">Chép các buổi nhậu từ database Supabase cũ sang Firebase. Tất cả đứng tên
+      tài khoản admin. Chạy lại nhiều lần cũng không sao — buổi nào đã có thì bỏ qua.</p>
+  </header>
+  <div class="card">
+    <button class="btn btn-primary" id="runBtn" type="button">Nhập dữ liệu</button>
+    <pre id="log" style="white-space:pre-wrap; font-size:13px; margin:16px 0 0;"></pre>
+  </div>
+</div>
+
+<script type="module">
+import { db, doc, getDoc, writeBatch, arrayUnion } from '../assets/js/data/client.js';
+import { currentIdentity } from '../assets/js/data/identity.js';
+import { cleanPerson, cleanRound, cleanSponsor } from '../assets/js/data/events.js';
+import { signInWithUsername } from '../assets/js/core/auth.js';
+import { ADMIN_USERNAME } from '../assets/js/config.js';
+
+const log = (line) => { document.getElementById('log').textContent += line + '\n'; };
+const btn = document.getElementById('runBtn');
+
+btn.addEventListener('click', async () => {
+  btn.disabled = true;
+  try {
+    await signInWithUsername(ADMIN_USERNAME);
+    const me = currentIdentity();
+    log(`Đã đăng nhập: ${me.username}`);
+
+    const events = await (await fetch('du-lieu-cu.json')).json();
+    let added = 0;
+
+    for (const ev of events) {
+      const ref = doc(db, 'events', ev.id);
+      if ((await getDoc(ref)).exists()) {
+        log(`- Bỏ qua (đã có): ${ev.name}`);
+        continue;
+      }
+
+      const batch = writeBatch(db);
+      batch.set(ref, {
+        ownerId: me.id,
+        ownerUsername: me.username,
+        createdAt: ev.createdAt,
+        name: ev.name,
+        eventDate: ev.eventDate || '',
+        organizerId: ev.organizerId || null,
+        people: ev.people.map(cleanPerson),
+        rounds: ev.rounds.map(cleanRound),
+        sponsors: ev.sponsors.map(cleanSponsor),
+      });
+      batch.set(doc(db, 'owners', me.username), { uid: me.id, eventIds: arrayUnion(ev.id) }, { merge: true });
+      await batch.commit();
+
+      added += 1;
+      log(`+ Đã nhập: ${ev.name} (${ev.people.length} người, ${ev.rounds.length} khoản)`);
+    }
+
+    log(`\nXong. Nhập mới ${added}/${events.length} buổi. Mở lại trang chính để xem.`);
+  } catch (err) {
+    console.error(err);
+    log(`LỖI: ${err.message}`);
+    btn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

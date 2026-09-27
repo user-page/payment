@@ -43,9 +43,9 @@ export function renderEventList() {
       },
     }, [el('span', { class: 'name', textContent: e.name || 'Buổi chưa đặt tên' })]);
 
-    if (e.event_date) card.append(el('span', { class: 'meta', textContent: e.event_date }));
-    if (isAdmin && e.owner_id !== user?.id) {
-      card.append(el('span', { class: 'meta', textContent: e.owner_username || e.owner_email || '' }));
+    if (e.eventDate) card.append(el('span', { class: 'meta', textContent: e.eventDate }));
+    if (isAdmin && e.ownerId !== user?.id) {
+      card.append(el('span', { class: 'meta', textContent: e.ownerUsername }));
     }
     card.append(
       el('span', {

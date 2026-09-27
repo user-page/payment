@@ -1,27 +1,47 @@
 /**
- * Kết nối Supabase dùng chung. Mọi module khác lấy client từ đây,
- * không tự tạo client riêng.
+ * Kết nối Firebase dùng chung.
+ *
+ * Đây là file DUY NHẤT nạp thư viện Firebase. Các module khác lấy hàm từ đây,
+ * nên muốn đổi phiên bản hay thay thư viện (VD: bản giả lập khi chạy test) chỉ
+ * phải đụng một chỗ.
  */
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.js';
+import { FIREBASE_CONFIG, FIREBASE_SDK_VERSION } from '../config.js';
 
-if (!window.supabase?.createClient) {
-  throw new Error('Chưa nạp được thư viện Supabase — kiểm tra thẻ script trong index.html.');
-}
+const CDN = `https://www.gstatic.com/firebasejs/${FIREBASE_SDK_VERSION}`;
 
-export const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const [appSdk, authSdk, dbSdk] = await Promise.all([
+  import(`${CDN}/firebase-app.js`),
+  import(`${CDN}/firebase-auth.js`),
+  import(`${CDN}/firebase-firestore.js`),
+]);
 
-/**
- * Gọi edge function công khai (không cần đăng nhập) bằng fetch thường,
- * vì sb.functions.invoke luôn đính kèm token của phiên hiện tại.
- */
-export async function callPublicFunction(name, params = {}) {
-  const qs = new URLSearchParams(params).toString();
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/${name}?${qs}`, {
-    headers: { apikey: SUPABASE_ANON_KEY },
-  });
-  const data = await res.json();
-  if (!res.ok || data.error) {
-    throw new Error(data?.error || 'Không tải được dữ liệu.');
-  }
-  return data;
-}
+/** Chưa điền cấu hình thật trong config.js thì app báo rõ thay vì lỗi khó hiểu. */
+export const isConfigured = !Object.values(FIREBASE_CONFIG).some((v) => String(v).includes('DIEN_VAO_DAY'));
+
+const app = appSdk.initializeApp(FIREBASE_CONFIG);
+
+export const auth = authSdk.getAuth(app);
+export const db = dbSdk.getFirestore(app);
+
+export const {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} = authSdk;
+
+export const {
+  doc,
+  collection,
+  query,
+  where,
+  getDoc,
+  getDocs,
+  runTransaction,
+  writeBatch,
+  arrayUnion,
+  arrayRemove,
+} = dbSdk;
+
+/** Mã ngẫu nhiên cho người, khoản chi, tài trợ (các phần tử nằm trong một buổi). */
+export const newId = () => crypto.randomUUID();

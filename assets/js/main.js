@@ -2,7 +2,7 @@
  * Điểm khởi động và là nơi DUY NHẤT nối các tầng với nhau.
  *
  * Luồng phụ thuộc một chiều, không có vòng lặp:
- *   config → data → domain → core → ui → main
+ *   config → utils → domain → data → core → ui → main
  *
  * Tầng ui không tự gọi database: nó nhận các hàm hành động từ đây. Nhờ vậy
  * mỗi thao tác chỉ có một chỗ định nghĩa, và sau mỗi thao tác đều đi qua đúng
@@ -11,13 +11,14 @@
 import { today } from './utils/format.js';
 import { byId, copyText } from './utils/dom.js';
 
+import { isConfigured } from './data/client.js';
 import { listEvents, loadEvent, createEvent, deleteEvent } from './data/events.js';
 import { addPerson, removePerson, uploadQr, clearQr, setPaidAmount, setPaidFlag } from './data/people.js';
 import { addRound, removeRound } from './data/rounds.js';
 import { addSponsor, removeSponsor, updateSponsor } from './data/sponsors.js';
 
 import {
-  getState, setUser, setEvents, setCurrentEvent, reset, effectiveEvent, isDirty, subscribe,
+  getState, setUser, setEvents, setCurrentEvent, replaceEvent, reset, isDirty, subscribe,
 } from './core/store.js';
 import { signInWithUsername, signOut, loadProfile, watchSession } from './core/auth.js';
 
@@ -42,13 +43,13 @@ function renderAll() {
   renderEventList();
 }
 
-/** Tải lại buổi đang mở từ database rồi vẽ lại. */
+/** Tải lại buổi đang mở từ database rồi vẽ lại — giữ nguyên bản nháp chưa lưu. */
 async function reloadCurrentEvent() {
   const { currentEventId } = getState();
   if (!currentEventId) return;
   const [event, events] = await Promise.all([loadEvent(currentEventId), listEvents()]);
   setEvents(events);
-  setCurrentEvent(currentEventId, event);
+  replaceEvent(event);
   renderAll();
 }
 
@@ -79,6 +80,13 @@ async function mutate(fn, errorMessage) {
   }
 }
 
+/** Như mutate(), cho thao tác trên buổi đang mở. Chưa mở buổi nào thì bỏ qua. */
+function inCurrentEvent(fn, errorMessage) {
+  const { currentEventId } = getState();
+  if (!currentEventId) return;
+  return mutate(() => fn(currentEventId), errorMessage);
+}
+
 // ---------------------------------------------------------------- hành động
 
 const actions = {
@@ -96,86 +104,26 @@ const actions = {
     }, 'Không xoá được buổi nhậu.');
   },
 
-  onAddPerson(name) {
-    const { currentEventId } = getState();
-    if (!currentEventId) return;
-    return mutate(async () => {
-      const created = await addPerson(currentEventId, name);
-      // Người đầu tiên mặc định đứng ra chia tiền, đỡ một bước thao tác.
-      const ev = effectiveEvent();
-      if (ev && !ev.organizerId && created) {
-        const { updateEvent } = await import('./data/events.js');
-        await updateEvent(currentEventId, { organizer_person_id: created.id });
-      }
-    }, 'Không thêm được người.');
-  },
+  // Các thao tác trong một buổi đều cần biết buổi đang mở; gom lại cho gọn.
+  onAddPerson: (name) => inCurrentEvent((id) => addPerson(id, name), 'Không thêm được người.'),
+  onRemovePerson: (personId) => inCurrentEvent((id) => removePerson(id, personId), 'Không xoá được người.'),
+  onUploadQr: (personId, blob) => inCurrentEvent((id) => uploadQr(id, personId, blob), 'Không lưu được ảnh QR.'),
+  onClearQr: (personId) => inCurrentEvent((id) => clearQr(id, personId), 'Không xoá được ảnh QR.'),
 
-  onRemovePerson(personId) {
-    const { currentEventId } = getState();
-    return mutate(async () => {
-      await removePerson(personId);
-      // Xoá đúng người đang đứng ra chia tiền thì chỉ định lại người khác.
-      const fresh = await loadEvent(currentEventId);
-      if (fresh && !fresh.organizerId && fresh.people.length) {
-        const { updateEvent } = await import('./data/events.js');
-        await updateEvent(currentEventId, { organizer_person_id: fresh.people[0].id });
-      }
-    }, 'Không xoá được người.');
-  },
+  onAddRound: () => inCurrentEvent((id) => addRound(id), 'Không thêm được khoản chi.'),
+  onRemoveRound: (roundId) => inCurrentEvent((id) => removeRound(id, roundId), 'Không xoá được khoản chi.'),
 
-  onUploadQr(personId, blob) {
-    const { currentEventId } = getState();
-    return mutate(() => uploadQr(currentEventId, personId, blob), 'Không tải được ảnh QR lên.');
-  },
+  onAddSponsor: (payload) => inCurrentEvent((id) => addSponsor(id, payload), 'Không thêm được khoản tài trợ.'),
+  onRemoveSponsor: (sponsorId) => inCurrentEvent((id) => removeSponsor(id, sponsorId), 'Không xoá được khoản tài trợ.'),
+  onToggleSponsorPaid: (sponsorId, isPaid) =>
+    inCurrentEvent((id) => updateSponsor(id, sponsorId, { isPaid }), 'Không đổi được trạng thái.'),
+  onToggleSponsorSplit: (sponsorId, stillSplit) =>
+    inCurrentEvent((id) => updateSponsor(id, sponsorId, { stillSplit }), 'Không đổi được trạng thái.'),
 
-  onClearQr(personId) {
-    return mutate(() => clearQr(personId), 'Không xoá được ảnh QR.');
-  },
-
-  onAddRound() {
-    const ev = effectiveEvent();
-    const { currentEventId } = getState();
-    if (!ev || !currentEventId) return;
-    return mutate(
-      () => addRound(currentEventId, {
-        index: ev.rounds.length,
-        people: ev.people,
-        organizerId: ev.organizerId,
-        lastRound: ev.rounds.at(-1),
-      }),
-      'Không thêm được khoản chi.'
-    );
-  },
-
-  onRemoveRound(roundId) {
-    return mutate(() => removeRound(roundId), 'Không xoá được khoản chi.');
-  },
-
-  onAddSponsor(payload) {
-    const { currentEventId } = getState();
-    if (!currentEventId) return;
-    return mutate(() => addSponsor(currentEventId, payload), 'Không thêm được khoản tài trợ.');
-  },
-
-  onRemoveSponsor(sponsorId) {
-    return mutate(() => removeSponsor(sponsorId), 'Không xoá được khoản tài trợ.');
-  },
-
-  onToggleSponsorPaid(sponsorId, isPaid) {
-    return mutate(() => updateSponsor(sponsorId, { is_paid: isPaid }), 'Không đổi được trạng thái.');
-  },
-
-  onToggleSponsorSplit(sponsorId, stillSplit) {
-    return mutate(() => updateSponsor(sponsorId, { still_split: stillSplit }), 'Không đổi được trạng thái.');
-  },
-
-  onTogglePaid(personId, isPaid, owed) {
-    return mutate(() => setPaidFlag(personId, isPaid, owed), 'Không cập nhật được.');
-  },
-
-  onSetPaidAmount(personId, amount, owed) {
-    return mutate(() => setPaidAmount(personId, amount, owed), 'Không cập nhật được số tiền đã trả.');
-  },
+  onTogglePaid: (personId, isPaid, owed) =>
+    inCurrentEvent((id) => setPaidFlag(id, personId, isPaid, owed), 'Không cập nhật được.'),
+  onSetPaidAmount: (personId, amount, owed) =>
+    inCurrentEvent((id) => setPaidAmount(id, personId, amount, owed), 'Không cập nhật được số tiền đã trả.'),
 
   async onShareEvent(ev) {
     await copyText(shareLink('share', ev.id));
@@ -284,7 +232,6 @@ function initCreateForm() {
       const created = await createEvent({
         name: byId('createEventName').value.trim(),
         eventDate: byId('createEventDate').value,
-        user,
       });
       byId('createEventName').value = '';
       byId('createEventDate').value = today();
@@ -302,6 +249,12 @@ function initCreateForm() {
 // -------------------------------------------------------------- khởi động
 
 function main() {
+  if (!isConfigured) {
+    byId('loadingNote').textContent =
+      'Chưa cấu hình Firebase — điền thông tin project vào assets/js/config.js (xem README).';
+    return;
+  }
+
   // Link chia sẻ đi đường riêng: không đăng nhập, không dựng phần chỉnh sửa.
   if (handleShareRoute()) return;
 

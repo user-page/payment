@@ -20,7 +20,7 @@ const listeners = new Set();
 const state = {
   user: null,          // { id, email, username }
   isAdmin: false,
-  events: [],          // danh sách thô từ ctn_events
+  events: [],          // danh sách tóm tắt các buổi (không kèm người, khoản chi)
   currentEventId: null,
   event: null,         // buổi đang mở, đã nạp đầy đủ
   draft: new Map(),    // khoá -> thay đổi chưa lưu
@@ -55,6 +55,20 @@ export function setCurrentEvent(eventId, event) {
   state.currentEventId = eventId;
   state.event = event;
   state.draft.clear();
+  emit();
+}
+
+/**
+ * Cập nhật dữ liệu đã lưu của buổi ĐANG MỞ (sau khi thêm/xoá người, khoản...)
+ * mà KHÔNG bỏ bản nháp — để những gì đang gõ dở chưa lưu không bị mất.
+ * Chỉ bỏ phần nháp của khoản chi vừa bị xoá.
+ */
+export function replaceEvent(event) {
+  state.event = event;
+  const roundIds = new Set((event?.rounds || []).map((r) => r.id));
+  for (const [key, entry] of state.draft) {
+    if (entry.roundId && !roundIds.has(entry.roundId)) state.draft.delete(key);
+  }
   emit();
 }
 
@@ -147,8 +161,7 @@ export function effectiveEvent() {
 }
 
 /**
- * Bản nháp đã sẵn sàng để ghi xuống database.
- * Tầng lưu (core/persist.js) dịch sang tên cột thật.
+ * Bản nháp đã sẵn sàng để ghi xuống database (xem core/persist.js).
  */
 export function draftEntries() {
   return [...state.draft.values()];

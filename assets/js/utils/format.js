@@ -32,7 +32,7 @@ export function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-/** Bỏ dấu tiếng Việt, chuyển thành slug — khớp với hàm slugify ở edge function. */
+/** Bỏ dấu tiếng Việt, chuyển thành slug — dùng làm tên đăng nhập. Đổi luật này = đổi tên của mọi người. */
 export function slugify(input) {
   let s = String(input || '').toLowerCase().replace(/đ/g, 'd');
   s = s.normalize('NFD').replace(/[̀-ͯ]/g, '');

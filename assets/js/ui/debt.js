@@ -25,10 +25,10 @@ async function computeDebt() {
 
   try {
     const rows = await listEvents();
-    // Tải tuần tự cho nhẹ tải database; số buổi của một người luôn nhỏ.
+    // Tải tuần tự cho nhẹ; số buổi của một người luôn nhỏ.
     const events = [];
     for (const row of rows) {
-      const ev = await loadEvent(row.id);
+      const ev = await loadEvent(row.id, { withQr: false }); // tính nợ không cần ảnh
       if (ev) events.push(ev);
     }
 

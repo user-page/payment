@@ -5,12 +5,13 @@
  *   ?share=<id buổi>       một buổi nhậu
  *   ?shareAll=<tên đăng nhập>  tổng hợp mọi buổi của một người
  *
- * Dữ liệu lấy qua edge function công khai, không qua bảng trực tiếp — nhờ vậy
- * người xem không cần tài khoản mà cũng không đọc được gì ngoài phần được chia sẻ.
+ * Quy tắc Firestore cho phép ai cũng ĐỌC được một buổi nếu biết id của nó
+ * (id ngẫu nhiên, không đoán được), nhưng không liệt kê được toàn bộ, không
+ * sửa được, và không đọc được ảnh QR.
  */
 import { byId, el } from '../utils/dom.js';
 import { escapeHtml } from '../utils/format.js';
-import { callPublicFunction } from '../data/client.js';
+import { loadPublicEvent, loadPublicOwner } from '../data/events.js';
 import { aggregateUnpaidDebts } from '../domain/settlement.js';
 import { eventResultsHtml, debtTableHtml } from './resultsView.js';
 
@@ -63,7 +64,7 @@ const SHARE_FOOTER =
 export async function showSharedEvent(eventId) {
   const view = enterShareMode();
   try {
-    const ev = await callPublicFunction('public-event-view', { id: eventId });
+    const ev = await loadPublicEvent(eventId);
     view.innerHTML =
       shareHeader(ev.name || 'Buổi nhậu', ev.eventDate ? `Ngày nhậu: ${ev.eventDate}` : '') +
       eventResultsHtml(ev) +
@@ -79,7 +80,7 @@ export async function showSharedOwner(username) {
 
   let data;
   try {
-    data = await callPublicFunction('public-owner-view', { username });
+    data = await loadPublicOwner(username);
   } catch (err) {
     view.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
     return;

@@ -1,27 +1,33 @@
 /**
  * Khoản tài trợ / bao thêm.
  */
-import { sb } from './client.js';
+import { newId } from './client.js';
+import { mutateEvent } from './events.js';
 
-export async function addSponsor(eventId, { ten, soTien, ghiChu, personId, stillSplit, isPaid }) {
-  const res = await sb.from('ctn_sponsors').insert({
-    event_id: eventId,
-    ten,
-    so_tien: soTien,
-    ghi_chu: ghiChu || '',
-    person_id: personId || null,
-    still_split: stillSplit !== false,
-    is_paid: !!isPaid,
+export function addSponsor(eventId, { ten, soTien, ghiChu, personId, stillSplit, isPaid }) {
+  return mutateEvent(eventId, (ev) => {
+    ev.sponsors.push({
+      id: newId(),
+      ten,
+      soTien,
+      ghiChu: ghiChu || '',
+      personId: personId || null,
+      stillSplit: stillSplit !== false,
+      isPaid: !!isPaid,
+    });
   });
-  if (res.error) throw new Error(res.error.message);
 }
 
-export async function updateSponsor(sponsorId, patch) {
-  const res = await sb.from('ctn_sponsors').update(patch).eq('id', sponsorId);
-  if (res.error) throw new Error(res.error.message);
+/** Sửa khoản tài trợ, VD: { isPaid: true } hoặc { stillSplit: false }. */
+export function updateSponsor(eventId, sponsorId, patch) {
+  return mutateEvent(eventId, (ev) => {
+    const sp = ev.sponsors.find((s) => s.id === sponsorId);
+    if (sp) Object.assign(sp, patch);
+  });
 }
 
-export async function removeSponsor(sponsorId) {
-  const res = await sb.from('ctn_sponsors').delete().eq('id', sponsorId);
-  if (res.error) throw new Error(res.error.message);
+export function removeSponsor(eventId, sponsorId) {
+  return mutateEvent(eventId, (ev) => {
+    ev.sponsors = ev.sponsors.filter((s) => s.id !== sponsorId);
+  });
 }

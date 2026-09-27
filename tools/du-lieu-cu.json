@@ -1,0 +1,170 @@
+[
+  {
+    "id": "94e3cd43-eb03-43a6-892d-64dbeb59aa9f",
+    "name": "Buổi nhậu mới",
+    "eventDate": "",
+    "organizerId": "35369646-a043-4fe2-b23d-25a88e08c66d",
+    "createdAt": "2026-08-31T16:36:09.193427+00:00",
+    "oldOwner": "vthang1510",
+    "people": [
+      {
+        "id": "35369646-a043-4fe2-b23d-25a88e08c66d",
+        "name": "ThangLV11",
+        "hasQr": false,
+        "isPaid": false,
+        "paidAmount": 0
+      }
+    ],
+    "rounds": [
+      {
+        "id": "99a68618-ca6e-4f60-9e7e-14d8739fc0b0",
+        "ten": "Tăng 1",
+        "ngay": "2026-08-31",
+        "diaDiem": "",
+        "soTien": 0,
+        "nguoiTraId": null,
+        "thamGiaIds": []
+      },
+      {
+        "id": "5a18cf1e-e5b1-41f7-8cdc-aa76d38f68b2",
+        "ten": "Tăng 1",
+        "ngay": "2026-08-31",
+        "diaDiem": "",
+        "soTien": 0,
+        "nguoiTraId": null,
+        "thamGiaIds": []
+      }
+    ],
+    "sponsors": []
+  },
+  {
+    "id": "95333fb3-a060-454a-aac2-db916d61fc19",
+    "name": "ăn lòng",
+    "eventDate": "2026-08-27",
+    "organizerId": "cfb5f42c-15d3-4eb8-b4ae-5881641a14e6",
+    "createdAt": "2026-09-06T09:46:56.432501+00:00",
+    "oldOwner": "vthang1510-gmail-com",
+    "people": [
+      {
+        "id": "cfb5f42c-15d3-4eb8-b4ae-5881641a14e6",
+        "name": "ThangLV11",
+        "hasQr": false,
+        "isPaid": false,
+        "paidAmount": 0
+      },
+      {
+        "id": "092a532b-20de-4488-80e6-34789d11476d",
+        "name": "HungNN14",
+        "hasQr": false,
+        "isPaid": false,
+        "paidAmount": 0
+      },
+      {
+        "id": "8ad6d397-0321-4ff0-9b6c-fede01aa63ff",
+        "name": "PhongTH4",
+        "hasQr": false,
+        "isPaid": false,
+        "paidAmount": 0
+      }
+    ],
+    "rounds": [
+      {
+        "id": "0497c8b1-79f5-4205-93fd-9a8d7b8b46d6",
+        "ten": "Tăng 1",
+        "ngay": "2026-09-06",
+        "diaDiem": "Lòng",
+        "soTien": 800,
+        "nguoiTraId": "cfb5f42c-15d3-4eb8-b4ae-5881641a14e6",
+        "thamGiaIds": [
+          "cfb5f42c-15d3-4eb8-b4ae-5881641a14e6",
+          "092a532b-20de-4488-80e6-34789d11476d",
+          "8ad6d397-0321-4ff0-9b6c-fede01aa63ff"
+        ]
+      },
+      {
+        "id": "6919cacb-6ad3-40b9-804d-31c8b8267939",
+        "ten": "Taxi",
+        "ngay": "2026-09-06",
+        "diaDiem": "Taxi",
+        "soTien": 140,
+        "nguoiTraId": "092a532b-20de-4488-80e6-34789d11476d",
+        "thamGiaIds": [
+          "cfb5f42c-15d3-4eb8-b4ae-5881641a14e6",
+          "092a532b-20de-4488-80e6-34789d11476d",
+          "8ad6d397-0321-4ff0-9b6c-fede01aa63ff"
+        ]
+      }
+    ],
+    "sponsors": [
+      {
+        "id": "ccceed83-d3cd-4133-a347-406000249c07",
+        "ten": "HungNN14",
+        "soTien": 800,
+        "ghiChu": "",
+        "personId": "092a532b-20de-4488-80e6-34789d11476d",
+        "stillSplit": false,
+        "isPaid": false
+      }
+    ]
+  },
+  {
+    "id": "33bde903-b4fa-4125-8cc2-641937c78277",
+    "name": "Lòng",
+    "eventDate": "2026-09-20",
+    "organizerId": "fb884848-55f9-4007-8d6a-7c538bcae52b",
+    "createdAt": "2026-09-20T06:10:18.404484+00:00",
+    "oldOwner": "vthang15",
+    "people": [
+      {
+        "id": "fb884848-55f9-4007-8d6a-7c538bcae52b",
+        "name": "ThangLV11",
+        "hasQr": false,
+        "isPaid": false,
+        "paidAmount": 0
+      },
+      {
+        "id": "d42516f4-f54c-48a6-a83e-38d96df57d05",
+        "name": "HungNQ23",
+        "hasQr": false,
+        "isPaid": false,
+        "paidAmount": 0
+      },
+      {
+        "id": "a718a4c6-399f-43ec-a39b-d6c3beb4c01b",
+        "name": "DaiNV4",
+        "hasQr": false,
+        "isPaid": false,
+        "paidAmount": 0
+      }
+    ],
+    "rounds": [
+      {
+        "id": "f581ce5f-f4c1-432f-aa34-00352acf85c7",
+        "ten": "Tăng 1",
+        "ngay": "2026-09-20",
+        "diaDiem": "Lòng",
+        "soTien": 800,
+        "nguoiTraId": null,
+        "thamGiaIds": [
+          "fb884848-55f9-4007-8d6a-7c538bcae52b",
+          "d42516f4-f54c-48a6-a83e-38d96df57d05",
+          "a718a4c6-399f-43ec-a39b-d6c3beb4c01b"
+        ]
+      },
+      {
+        "id": "4854b005-5a7b-422c-8c48-30f3a1bf9b0c",
+        "ten": "Tăng 2",
+        "ngay": "2026-09-20",
+        "diaDiem": "Taxi",
+        "soTien": 120,
+        "nguoiTraId": "a718a4c6-399f-43ec-a39b-d6c3beb4c01b",
+        "thamGiaIds": [
+          "fb884848-55f9-4007-8d6a-7c538bcae52b",
+          "d42516f4-f54c-48a6-a83e-38d96df57d05",
+          "a718a4c6-399f-43ec-a39b-d6c3beb4c01b"
+        ]
+      }
+    ],
+    "sponsors": []
+  }
+]

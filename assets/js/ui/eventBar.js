@@ -35,8 +35,8 @@ export function renderEventBar() {
   byId('eventSelect').innerHTML = events
     .map((e) => {
       let label = e.name || 'Buổi chưa đặt tên';
-      if (e.event_date) label += ` (${e.event_date})`;
-      if (isAdmin && e.owner_id !== user?.id) label += `  — (${e.owner_username || e.owner_email})`;
+      if (e.eventDate) label += ` (${e.eventDate})`;
+      if (isAdmin && e.ownerId !== user?.id) label += `  — (${e.ownerUsername})`;
       return `<option value="${e.id}"${e.id === currentEventId ? ' selected' : ''}>${escapeHtml(label)}</option>`;
     })
     .join('');

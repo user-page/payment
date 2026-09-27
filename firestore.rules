@@ -1,0 +1,71 @@
+rules_version = '2';
+
+// Quy tắc bảo mật cho Chia Tiền Nhậu.
+// Dán toàn bộ file này vào Firebase Console → Firestore Database → Rules → Publish.
+//
+// Tóm tắt:
+//   - Mỗi người chỉ sửa/xoá/liệt kê được buổi của chính mình; admin làm được với mọi buổi.
+//   - Ai có link (biết id buổi) thì XEM được buổi đó mà không cần đăng nhập — đó là
+//     link chia sẻ chỉ-xem. Không ai liệt kê được toàn bộ các buổi.
+//   - Ảnh QR chỉ chủ buổi và admin đọc được.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Tên đăng nhập = phần trước @ của email ẩn (xem assets/js/data/identity.js).
+    function myUsername() {
+      return request.auth.token.email.split('@')[0];
+    }
+
+    // Sửa dòng này nếu đổi ADMIN_USERNAME hoặc LOGIN_EMAIL_DOMAIN trong config.js.
+    function isAdmin() {
+      return signedIn() && request.auth.token.email == 'vthang1510@ctn.example.com';
+    }
+
+    function owns(data) {
+      return signedIn() && data.ownerId == request.auth.uid;
+    }
+
+    // ---------------------------------------------------------------- buổi nhậu
+    match /events/{eventId} {
+      allow get: if true;
+      allow list: if isAdmin() || owns(resource.data);
+
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerUsername == myUsername();
+
+      // Không ai được đổi chủ của một buổi.
+      allow update: if (isAdmin() || owns(resource.data))
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.ownerUsername == resource.data.ownerUsername
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if isAdmin() || owns(resource.data);
+    }
+
+    // ------------------------------------- danh sách buổi của một người (link tổng hợp)
+    match /owners/{username} {
+      allow get: if true;
+      allow create, update: if isAdmin() || (signedIn() && username == myUsername());
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------- ảnh QR
+    match /qrs/{personId} {
+      allow get: if isAdmin() || owns(resource.data);
+
+      allow create: if isAdmin()
+        || (signedIn() && request.resource.data.ownerId == request.auth.uid);
+
+      allow update: if (isAdmin() || owns(resource.data))
+        && request.resource.data.ownerId == resource.data.ownerId;
+
+      allow delete: if isAdmin() || resource == null || owns(resource.data);
+    }
+  }
+}
