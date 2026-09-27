@@ -138,6 +138,25 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.waitForTimeout(200);
   check('đếm đúng 2 thay đổi', (await page.textContent('#saveStatus')).includes('2 thay đổi'));
 
+  // --- bấm chip người tham gia: phải đổi màu NGAY, không cần vẽ lại cả khoản
+  // (renderRounds() chỉ chạy lại sau khi Lưu/Huỷ — xem ui/rounds.js)
+  const round1 = page.locator('#roundsList .round-card').first();
+  const chipPhong = round1.locator('.toggle-chip', { hasText: 'PhongTH4' });
+  check('chip người tham gia: ban đầu đang bật', await chipPhong.evaluate((e) => e.classList.contains('is-on')));
+
+  await chipPhong.click();
+  check('bấm chip -> tắt ngay lập tức', !(await chipPhong.evaluate((e) => e.classList.contains('is-on'))));
+  check('bấm chip -> số đếm người tham gia cập nhật ngay',
+    (await round1.locator('.participants-label').textContent()).includes('2/3'));
+  check('bấm chip -> tính vào bản nháp, đếm 3 thay đổi', (await page.textContent('#saveStatus')).includes('3 thay đổi'));
+
+  await chipPhong.click();
+  check('bấm lại chip -> bật lại', await chipPhong.evaluate((e) => e.classList.contains('is-on')));
+  check('bấm lại chip -> số đếm trả về 3/3',
+    (await round1.locator('.participants-label').textContent()).includes('3/3'));
+
+  await chipPhong.click(); // tắt lại để kiểm tra lúc Lưu
+
   await page.click('.tab-btn[data-tab="list"]');
   await page.waitForTimeout(200);
   check('kết quả tính theo số vừa gõ dù chưa lưu', (await page.textContent('#statTotal')) === '600');
@@ -151,7 +170,7 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   check('thêm người ghi ngay xuống database',
     (await getDoc(page, 'events/e1')).people.some((p) => p.name === 'Anh Nam'));
   check('thêm người KHÔNG làm mất bản nháp đang gõ',
-    (await page.textContent('#saveStatus')).includes('2 thay đổi') &&
+    (await page.textContent('#saveStatus')).includes('3 thay đổi') &&
     (await page.inputValue('#eventName')) === 'Ăn lòng tất niên',
     await page.textContent('#saveStatus'));
 
@@ -164,6 +183,9 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   check('Lưu ghi đúng MỘT lần vào buổi', saveWrites.length === 1, JSON.stringify(saveWrites.map((w) => w.op)));
   check('Lưu ghi tên buổi mới', saved.name === 'Ăn lòng tất niên', saved.name);
   check('Lưu ghi số tiền mới', saved.rounds[0].soTien === 600, String(saved.rounds[0].soTien));
+  check('Lưu ghi đúng người tham gia (chip bỏ tích ở trên)',
+    !saved.rounds[0].thamGiaIds.includes('p3') && saved.rounds[0].thamGiaIds.includes('p1'),
+    JSON.stringify(saved.rounds[0].thamGiaIds));
   check('Lưu không đổi chủ buổi', saved.ownerId === 'u1' && saved.ownerUsername === 'vthang1510');
   check('lưu xong thanh Lưu biến mất', await page.locator('#saveBar').isHidden());
 

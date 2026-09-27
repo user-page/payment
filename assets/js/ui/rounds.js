@@ -134,17 +134,26 @@ function participantChips(ev, r) {
 
   for (const p of ev.people) {
     const on = r.thamGiaIds.includes(p.id);
-    chips.append(
-      el('button', {
-        type: 'button',
-        class: `toggle-chip${on ? ' is-on' : ''}`,
-        textContent: p.name,
-        onclick: () => {
-          const next = on ? r.thamGiaIds.filter((id) => id !== p.id) : [...r.thamGiaIds, p.id];
-          editParticipants(r.id, next);
-        },
-      })
-    );
+    const chip = el('button', {
+      type: 'button',
+      class: `toggle-chip${on ? ' is-on' : ''}`,
+      textContent: p.name,
+    });
+
+    /*
+     * Bấm chip không kéo theo vẽ lại cả khoản chi (renderRounds() chỉ chạy lại
+     * sau khi Lưu/Huỷ) — vẽ lại giữa chừng sẽ làm mất con trỏ đang gõ ở các ô
+     * khác trong cùng khoản. Vì vậy tự đổi màu chip và cập nhật số đếm ngay
+     * tại đây, thay vì trông chờ một lượt vẽ lại.
+     */
+    chip.addEventListener('click', () => {
+      const nowOn = chip.classList.toggle('is-on');
+      r.thamGiaIds = nowOn ? [...r.thamGiaIds, p.id] : r.thamGiaIds.filter((id) => id !== p.id);
+      label.textContent = `Người tham gia khoản này (${r.thamGiaIds.length}/${ev.people.length})`;
+      editParticipants(r.id, r.thamGiaIds);
+    });
+
+    chips.append(chip);
   }
 
   return el('div', {}, [label, chips]);
