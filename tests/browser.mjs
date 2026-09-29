@@ -333,6 +333,47 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.close();
 }
 
+// ============================ 2a2. nút Lưu ngay trong tab Chỉnh sửa
+{
+  const { page, errors } = await openPage('index.html');
+  await page.click('.tab-btn[data-tab="edit"]');
+  await page.waitForTimeout(300);
+
+  const bar = page.locator('#editSaveBar');
+  const btn = page.locator('#editSaveBtn');
+
+  check('nút Lưu trong tab Chỉnh sửa luôn hiện, kể cả khi chưa sửa gì',
+    await bar.isVisible());
+  check('chưa sửa gì -> nút mờ đi và nói đã lưu hết',
+    (await btn.isDisabled()) && (await page.textContent('#editSaveStatus')).includes('Đã lưu hết'),
+    await page.textContent('#editSaveStatus'));
+
+  await page.fill('#eventName', 'Tên mới');
+  await page.waitForTimeout(200);
+  check('sửa ô -> nút bật lên, đếm đúng số thay đổi',
+    !(await btn.isDisabled()) && (await page.textContent('#editSaveStatus')).includes('1 thay đổi'),
+    await page.textContent('#editSaveStatus'));
+
+  await btn.click();
+  await page.waitForTimeout(800);
+  check('bấm nút -> ghi thật xuống database',
+    (await getDoc(page, 'events/e1')).name === 'Tên mới',
+    (await getDoc(page, 'events/e1')).name);
+  check('lưu xong -> nút mờ lại, báo đã lưu hết',
+    (await btn.isDisabled()) && (await page.textContent('#editSaveStatus')).includes('Đã lưu hết'));
+
+  // Huỷ ngay trong tab Chỉnh sửa
+  await page.fill('#eventName', 'Gõ nhầm');
+  await page.waitForTimeout(200);
+  await page.click('#editDiscardBtn');
+  await page.waitForTimeout(600);
+  check('nút Huỷ trong tab Chỉnh sửa trả ô về giá trị đã lưu',
+    (await page.inputValue('#eventName')) === 'Tên mới', await page.inputValue('#eventName'));
+
+  check('nút Lưu trong tab Chỉnh sửa không lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ============ 2b. gõ tiền rồi bấm Cmd+S ngay, con trỏ còn trong ô
 {
   const { page, errors } = await openPage('index.html');

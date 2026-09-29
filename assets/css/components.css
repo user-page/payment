@@ -550,6 +550,47 @@ table.ledger td.debt-name { font-weight: 600; }
 
 /* -------------------------------------------------------- thanh lưu */
 
+/* --------------------------------- nút Lưu trong tab Chỉnh sửa ---------- */
+
+/*
+ * Luôn hiện, và dính lên đầu khi cuộn — để lúc nào cũng thấy được đang có
+ * thay đổi chưa lưu hay không, không phải cuộn xuống đáy tìm thanh lưu.
+ */
+.edit-savebar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--surface-raised);
+  box-shadow: 0 2px 10px -6px var(--shadow);
+}
+
+.edit-savebar.is-dirty {
+  border-color: var(--accent);
+  background: var(--accent-tint);
+}
+
+.edit-save-status {
+  flex: 1;
+  min-width: 150px;
+  font-size: 13px;
+  color: var(--ink-muted);
+}
+.edit-savebar.is-dirty .edit-save-status {
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+
+/* Không có gì để lưu thì làm mờ đi, khỏi mời gọi bấm vô ích. */
+.edit-savebar .btn[disabled] { opacity: 0.45; cursor: default; }
+
 .save-bar {
   position: fixed;
   left: 0;

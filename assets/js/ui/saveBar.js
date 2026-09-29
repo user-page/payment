@@ -1,7 +1,14 @@
 /**
- * Thanh Lưu nổi ở đáy màn hình.
+ * Hai chỗ bấm Lưu, dùng chung MỘT đường ghi xuống Firebase:
  *
- * Chỉ hiện khi có thay đổi chưa lưu. Kèm hai lớp chống mất dữ liệu:
+ *   - Nút trong tab Chỉnh sửa (#editSaveBar): luôn hiện, dính lên đầu khi
+ *     cuộn, nên lúc nào cũng thấy còn thay đổi chưa lưu hay không.
+ *   - Thanh nổi ở đáy màn hình (#saveBar): chỉ hiện khi có thay đổi.
+ *
+ * Cố tình KHÔNG viết hai luồng lưu riêng — hai nút gọi chung handleSave(),
+ * nếu không sẽ có ngày sửa một chỗ quên chỗ kia.
+ *
+ * Kèm hai lớp chống mất dữ liệu:
  *   - Chặn đóng tab khi còn thay đổi chưa lưu
  *   - Phím tắt Cmd/Ctrl + S để lưu nhanh
  */
@@ -14,8 +21,8 @@ let onSaved = null;
 export function initSaveBar({ onAfterSave }) {
   onSaved = onAfterSave;
 
-  byId('saveBtn').addEventListener('click', handleSave);
-  byId('discardBtn').addEventListener('click', handleDiscard);
+  for (const id of ['saveBtn', 'editSaveBtn']) byId(id).addEventListener('click', handleSave);
+  for (const id of ['discardBtn', 'editDiscardBtn']) byId(id).addEventListener('click', handleDiscard);
 
   // Chặn đóng tab khi còn thay đổi chưa lưu.
   window.addEventListener('beforeunload', (e) => {
@@ -36,8 +43,13 @@ export function initSaveBar({ onAfterSave }) {
     }
   });
 
-  subscribe(render);
+  subscribe(renderAllBars);
+  renderAllBars();
+}
+
+function renderAllBars() {
   render();
+  renderEditBar();
 }
 
 function render() {
@@ -58,6 +70,33 @@ function render() {
   saveBtn.disabled = saving;
   discardBtn.disabled = saving;
   saveBtn.textContent = saving ? 'Đang lưu...' : 'Lưu thay đổi';
+}
+
+/**
+ * Nút Lưu trong tab Chỉnh sửa. Luôn hiện, kể cả khi không có gì để lưu —
+ * lúc đó nó nói "Đã lưu hết" để khỏi phải phỏng đoán.
+ */
+function renderEditBar() {
+  const bar = byId('editSaveBar');
+  const status = byId('editSaveStatus');
+  const saveBtn = byId('editSaveBtn');
+  const discardBtn = byId('editDiscardBtn');
+  if (!bar) return;
+
+  const { saving } = getState();
+  const n = dirtyCount();
+
+  bar.classList.toggle('is-dirty', n > 0 || saving);
+
+  status.textContent = saving
+    ? 'Đang lưu vào Firebase...'
+    : n > 0
+      ? `${n} thay đổi chưa lưu`
+      : 'Đã lưu hết — không có thay đổi nào đang chờ';
+
+  saveBtn.textContent = saving ? 'Đang lưu...' : 'Lưu vào Firebase';
+  saveBtn.disabled = saving || n === 0;
+  discardBtn.disabled = saving || n === 0;
 }
 
 async function handleSave() {
