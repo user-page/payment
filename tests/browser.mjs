@@ -445,8 +445,8 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
     head[0].includes('người') && head[1].includes('tăng 1') && head[2].includes('taxi') &&
     head[3].includes('tổng các tăng') && head[4].includes('đã ứng') && head[5].includes('còn phải trả'),
     JSON.stringify(head));
-  check('đầu cột mỗi tăng ghi ai trả',
-    head[1].includes('thanglv11') && head[2].includes('hungnn14'), JSON.stringify(head));
+  check('đầu cột chỉ ghi tên tăng, không kèm ngày/địa điểm/người trả',
+    head[1].trim() === 'tăng 1' && head[2].trim() === 'taxi', JSON.stringify(head));
 
   const cells = (row) => table.locator('tbody tr').nth(row).locator('td');
   // Nhãn "Chia tiền" nằm ở dòng riêng trong ô nên gộp xuống dòng thành dấu cách.

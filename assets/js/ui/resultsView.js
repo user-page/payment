@@ -69,15 +69,10 @@ function roundsTable(ev, summary) {
     return distributeShares(r.soTien || 0, joined);
   });
 
+  // Đầu cột chỉ ghi tên tăng cho gọn. Ai trả khoản nào xem ở tab Chỉnh sửa;
+  // nhồi thêm ngày, địa điểm, người trả vào đây làm bảng rối mà ít ai đọc.
   const head = ev.rounds
-    .map((r, i) => {
-      const payer = r.nguoiTraId ? personName(ev, r.nguoiTraId) : '— chưa chọn —';
-      const place = [r.ngay, r.diaDiem].filter(Boolean).join(' · ');
-      return `<th class="num">
-        ${escapeHtml(r.ten || `Khoản ${i + 1}`)}
-        <div class="round-sub">${escapeHtml(payer)} trả${place ? ` · ${escapeHtml(place)}` : ''}</div>
-      </th>`;
-    })
+    .map((r, i) => `<th class="num">${escapeHtml(r.ten || `Khoản ${i + 1}`)}</th>`)
     .join('');
 
   const body = ev.people

@@ -461,13 +461,6 @@ table.ledger td.debt-name { font-weight: 600; }
 
 /* ---------------------------- bảng chia theo từng tăng ---------------- */
 
-/* dòng phụ dưới tên khoản: ngày và địa điểm */
-table.ledger .round-sub {
-  font-size: 12px;
-  color: var(--ink-faint);
-  margin-top: 2px;
-}
-
 /* dòng tổng phải đọc được ngay, vì đó là con số người ta tìm đầu tiên */
 table.rounds-breakdown tr.is-total td {
   font-weight: 700;
@@ -478,11 +471,6 @@ table.rounds-breakdown tr.is-total td {
 
 /* tên tăng ở đầu cột: canh phải cho thẳng cột số bên dưới */
 table.rounds-breakdown thead th.num { text-align: right; }
-table.rounds-breakdown thead .round-sub {
-  font-weight: 400;
-  text-transform: none;
-  letter-spacing: 0;
-}
 
 /* cột Tổng của mỗi người — chỗ mắt dừng lại lâu nhất */
 table.rounds-breakdown td.col-sum {
