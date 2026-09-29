@@ -416,6 +416,84 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.close();
 }
 
+// ============= 2c2. bảng chia theo từng tăng + link riêng mỗi buổi
+{
+  const seed = structuredClone(SEED);
+  seed.docs['events/e1'].rounds.push({
+    id: 'r2', ten: 'Taxi', ngay: '2026-09-20', diaDiem: 'Về nhà',
+    soTien: 300, nguoiTraId: 'p2', thamGiaIds: ['p1', 'p2'],
+  });
+  // Buổi thứ hai, để kiểm mỗi buổi ra một link khác nhau. Ngày tạo CŨ hơn e1
+  // để app vẫn mở e1 (nó chọn buổi mới nhất), tức bảng đang xem là của e1.
+  seed.docs['events/e2'] = {
+    ...structuredClone(SEED.docs['events/e1']), name: 'Buổi thứ hai',
+    createdAt: '2026-09-19T10:00:00Z',
+  };
+  seed.docs['owners/vthang1510'] = { uid: 'u1', eventIds: ['e1', 'e2'] };
+
+  const { page, errors } = await openPage('index.html', { seed });
+  await page.click('.tab-btn[data-tab="list"]');
+  await page.waitForTimeout(500);
+
+  const table = page.locator('table.rounds-breakdown');
+  check('có bảng chia theo từng khoản', await table.isVisible());
+
+  const rows = await table.locator('tbody tr').allInnerTexts();
+  check('liệt kê đủ từng tăng kèm số tiền',
+    rows[0].includes('Tăng 1') && rows[0].includes('900') &&
+    rows[1].includes('Taxi') && rows[1].includes('300'),
+    JSON.stringify(rows.slice(0, 2)));
+  check('mỗi khoản hiện tiền chia mỗi người (900/3=300, 300/2=150)',
+    rows[0].includes('300') && rows[1].includes('150'), JSON.stringify(rows.slice(0, 2)));
+  check('có dòng Tổng chi đúng bằng 900+300',
+    rows.some((r) => r.includes('Tổng chi') && r.includes('1200')), JSON.stringify(rows));
+  check('khoản chỉ 2/3 người tham gia thì ghi đúng số người',
+    rows[1].includes('2'), rows[1]);
+
+  // --- link riêng cho từng buổi, chép ngay trong danh sách
+  await page.evaluate(() => {
+    window.__copied = [];
+    navigator.clipboard.writeText = (t) => { window.__copied.push(t); return Promise.resolve(); };
+  });
+
+  const cards = page.locator('#eventListBody .event-card');
+  check('mỗi buổi có nút Chia sẻ riêng',
+    (await cards.count()) === 2 && (await page.locator('.event-share-btn').count()) === 2);
+
+  await cards.nth(0).locator('.event-share-btn').click();
+  await cards.nth(1).locator('.event-share-btn').click();
+  await page.waitForTimeout(400);
+
+  const copied = await page.evaluate(() => window.__copied);
+  check('hai buổi cho ra hai link KHÁC nhau', copied.length === 2 && copied[0] !== copied[1],
+    JSON.stringify(copied));
+  check('link chứa đúng id của từng buổi',
+    copied.some((l) => l.includes('share=e1')) && copied.some((l) => l.includes('share=e2')),
+    JSON.stringify(copied));
+  // Cả thẻ là nút chuyển buổi. Vừa bấm Chia sẻ ở thẻ thứ hai (buổi KHÔNG đang
+  // xem) — nếu click lan ra thẻ thì app đã nhảy sang buổi đó.
+  const cardTexts = await cards.allInnerTexts();
+  check('bấm Chia sẻ không làm nhảy sang buổi khác',
+    cardTexts[0].includes('Đang xem') && !cardTexts[1].includes('Đang xem'),
+    JSON.stringify(cardTexts));
+  check('bấm Chia sẻ có báo đã chép', (await page.textContent('#saveFlash')).includes('Đã chép link'),
+    await page.textContent('#saveFlash'));
+
+  check('bảng từng tăng + chia sẻ không lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ======================= 2c3. link chia sẻ cũng hiện bảng từng tăng
+{
+  const { page } = await openPage('index.html?share=e1', { signedInAs: null });
+  await page.waitForTimeout(700);
+  const text = await page.textContent('#shareView');
+  check('người xem qua link cũng thấy bảng chia từng tăng',
+    text.includes('Từng khoản đã chi') && text.includes('Tăng 1') && text.includes('Tổng chi'),
+    text.slice(0, 160));
+  await page.close();
+}
+
 // ============================================= 2d. tab "Ai chưa trả"
 {
   const { page, errors } = await openPage('index.html');

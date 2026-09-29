@@ -54,6 +54,27 @@ export function renderEventList() {
       })
     );
 
+    /*
+     * Mỗi buổi một link riêng, chép được ngay tại đây — không phải mở buổi đó
+     * lên rồi mới chia sẻ được. Link dạng ?share=<id của buổi>, id do Firestore
+     * sinh ngẫu nhiên nên không ai đoán ra buổi khác.
+     *
+     * stopPropagation: cả thẻ là nút chuyển buổi, bấm "Chia sẻ" mà không chặn
+     * thì vừa chép link vừa nhảy sang buổi khác.
+     */
+    card.append(
+      el('button', {
+        type: 'button',
+        class: 'btn btn-ghost btn-small event-share-btn',
+        textContent: 'Chia sẻ',
+        title: 'Chép link chỉ-xem của riêng buổi này',
+        onclick: (evt) => {
+          evt.stopPropagation();
+          actions.onShareEvent(e);
+        },
+      })
+    );
+
     list.append(card);
   }
 

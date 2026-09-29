@@ -9,7 +9,7 @@
  * một đường tải lại dữ liệu.
  */
 import { today } from './utils/format.js';
-import { byId, copyText } from './utils/dom.js';
+import { byId, copyText, flashMessage } from './utils/dom.js';
 
 import { isConfigured } from './data/client.js';
 import { listEvents, loadEvent, createEvent, deleteEvent } from './data/events.js';
@@ -28,7 +28,7 @@ import { initEventBar, renderEventBar } from './ui/eventBar.js';
 import { initPeople, renderPeople } from './ui/people.js';
 import { initRounds, renderRounds } from './ui/rounds.js';
 import { initSponsors, renderSponsors } from './ui/sponsors.js';
-import { initResults, renderResults, renderEventList, showToast } from './ui/results.js';
+import { initResults, renderResults, renderEventList } from './ui/results.js';
 import { initDebt } from './ui/debt.js';
 import { handleShareRoute, shareLink } from './ui/shareView.js';
 
@@ -126,8 +126,12 @@ const actions = {
     inCurrentEvent((id) => setPaidAmount(id, personId, amount, owed), 'Không cập nhật được số tiền đã trả.'),
 
   async onShareEvent(ev) {
-    await copyText(shareLink('share', ev.id));
-    showToast('Đã sao chép link chỉ-xem');
+    const link = shareLink('share', ev.id);
+    const ok = await copyText(link);
+    const ten = ev.name ? `"${ev.name}"` : 'buổi này';
+    // flashMessage chứ không phải showToast: nút Chia sẻ nay có ở cả danh sách
+    // buổi, nơi bảng kết quả (và ô toast của nó) có thể chưa được vẽ.
+    flashMessage(ok ? `Đã chép link chỉ-xem của ${ten}` : `Link chỉ-xem của ${ten}: ${link}`, 'ok');
   },
 
   async onShareAll() {

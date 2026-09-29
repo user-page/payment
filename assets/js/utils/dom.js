@@ -79,3 +79,20 @@ export function showQrModal(src, name) {
   overlay.addEventListener('click', () => overlay.remove());
   document.body.append(overlay);
 }
+
+/**
+ * Thông báo ngắn ở đáy màn hình.
+ *
+ * Dùng ô #saveFlash — ô này nằm sẵn trong index.html nên lúc nào cũng có,
+ * khác với #copyToast chỉ tồn tại khi bảng kết quả đang được vẽ.
+ */
+export function flashMessage(message, kind = 'ok') {
+  const node = byId('saveFlash');
+  if (!node) return;
+  node.textContent = message;
+  node.className = `save-flash is-visible ${kind === 'error' ? 'is-error' : 'is-ok'}`;
+  clearTimeout(flashMessage.timer);
+  flashMessage.timer = setTimeout(() => {
+    node.className = 'save-flash';
+  }, kind === 'error' ? 6000 : 2600);
+}

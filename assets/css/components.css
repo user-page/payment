@@ -459,6 +459,28 @@ table.ledger td.num {
 table.ledger tr.is-organizer td:first-child { font-weight: 700; }
 table.ledger td.debt-name { font-weight: 600; }
 
+/* ---------------------------- bảng chia theo từng tăng ---------------- */
+
+/* dòng phụ dưới tên khoản: ngày và địa điểm */
+table.ledger .round-sub {
+  font-size: 12px;
+  color: var(--ink-faint);
+  margin-top: 2px;
+}
+
+/* dòng tổng phải đọc được ngay, vì đó là con số người ta tìm đầu tiên */
+table.rounds-breakdown tr.is-total td {
+  font-weight: 700;
+  border-top: 2px solid var(--line-strong);
+  border-bottom: none;
+  background: var(--surface);
+}
+
+table.rounds-breakdown tr.is-sponsor td {
+  color: var(--positive);
+  border-bottom: none;
+}
+
 .name-cell { display: flex; align-items: center; gap: 6px; }
 
 .organizer-tag {
@@ -655,3 +677,6 @@ table.ledger td.debt-name { font-weight: 600; }
 .save-flash.is-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
 .save-flash.is-ok { background: var(--positive); color: #fff; }
 .save-flash.is-error { background: var(--negative); color: #fff; }
+
+/* nút Chia sẻ trên từng thẻ buổi nhậu trong danh sách */
+.event-card .event-share-btn { white-space: nowrap; }

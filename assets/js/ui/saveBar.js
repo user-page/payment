@@ -12,7 +12,7 @@
  *   - Chặn đóng tab khi còn thay đổi chưa lưu
  *   - Phím tắt Cmd/Ctrl + S để lưu nhanh
  */
-import { byId } from '../utils/dom.js';
+import { byId, flashMessage as flash } from '../utils/dom.js';
 import { getState, subscribe, dirtyCount, isDirty, discardDraft, setSaving } from '../core/store.js';
 import { saveDraft } from '../core/persist.js';
 
@@ -123,13 +123,3 @@ function handleDiscard() {
   onSaved?.();
 }
 
-/** Thông báo ngắn ở đáy màn hình. */
-function flash(message, kind) {
-  const node = byId('saveFlash');
-  node.textContent = message;
-  node.className = `save-flash is-visible ${kind === 'error' ? 'is-error' : 'is-ok'}`;
-  clearTimeout(flash.timer);
-  flash.timer = setTimeout(() => {
-    node.className = 'save-flash';
-  }, kind === 'error' ? 6000 : 2200);
-}

@@ -12,6 +12,7 @@ import { fmtNum, escapeHtml } from '../utils/format.js';
 import {
   computeSummary,
   computeSettlement,
+  distributeShares,
   remainingOf,
   unpaidSponsors,
   totalSpent,
@@ -37,6 +38,68 @@ function statStrip(ev) {
         `<div class="stat"><div class="stat-label">${label}</div><div class="stat-value">${value}</div></div>`
     )
     .join('')}</div>`;
+}
+
+/**
+ * Bảng từng khoản chi: tăng 1, tăng 2, taxi... kèm dòng tổng.
+ *
+ * Trả lời câu hỏi hay gặp nhất khi nhìn bảng kết quả: "số này ở đâu ra?".
+ * Cột "Mỗi người" là phần chia của khoản đó — chia đều cho những ai có tích
+ * tham gia khoản đó, làm tròn xuống (xem distributeShares).
+ */
+function roundsTable(ev) {
+  const rows = ev.rounds
+    .map((r, i) => {
+      const joined = (r.thamGiaIds || []).filter((id) => ev.people.some((p) => p.id === id));
+      const share = joined.length ? distributeShares(r.soTien || 0, joined)[joined[0]] : 0;
+      const payer = r.nguoiTraId ? personName(ev, r.nguoiTraId) : '— chưa chọn —';
+      const place = [r.ngay, r.diaDiem].filter(Boolean).join(' · ');
+
+      return `<tr>
+        <td>
+          <span class="name-cell">${escapeHtml(r.ten || `Khoản ${i + 1}`)}</span>
+          ${place ? `<div class="round-sub">${escapeHtml(place)}</div>` : ''}
+        </td>
+        <td>${escapeHtml(payer)}</td>
+        <td class="num">${joined.length}</td>
+        <td class="num">${fmtNum(r.soTien || 0)}</td>
+        <td class="num">${fmtNum(share)}</td>
+      </tr>`;
+    })
+    .join('');
+
+  const total = totalSpent(ev);
+  const sponsored = totalSponsored(ev);
+
+  // Tài trợ chỉ hiện khi có, để bảng khỏi rối với buổi không ai bao.
+  const sponsorRow = sponsored
+    ? `<tr class="is-sponsor">
+         <td colspan="3">Trừ tài trợ / bao thêm</td>
+         <td class="num">−${fmtNum(sponsored)}</td>
+         <td class="num"></td>
+       </tr>
+       <tr class="is-total">
+         <td colspan="3">Còn phải chia</td>
+         <td class="num">${fmtNum(Math.max(0, total - sponsored))}</td>
+         <td class="num"></td>
+       </tr>`
+    : '';
+
+  return `<div class="table-scroll"><table class="ledger rounds-breakdown">
+    <thead><tr>
+      <th>Khoản</th><th>Người trả</th><th class="num">Số người</th>
+      <th class="num">Số tiền</th><th class="num">Mỗi người</th>
+    </tr></thead>
+    <tbody>
+      ${rows}
+      <tr class="is-total">
+        <td colspan="3">Tổng chi</td>
+        <td class="num">${fmtNum(total)}</td>
+        <td class="num"></td>
+      </tr>
+      ${sponsorRow}
+    </tbody>
+  </table></div>`;
 }
 
 /** Bảng đã trả / phải trả / chênh lệch của từng người. */
@@ -170,6 +233,11 @@ export function eventResultsHtml(ev, { interactive = false, extraHtml = '', with
   return `<section class="results-section">
     ${withStats ? statStrip(ev) : ''}
     ${noPayerNote(ev)}
+
+    <h2 style="margin-top:0;">Từng khoản đã chi</h2>
+    ${roundsTable(ev)}
+
+    <h2>Tổng kết từng người</h2>
     ${ledgerTable(ev, summary)}
     <div class="settlement-section">
       <h2 style="margin-top:0;">Cần chuyển khoản</h2>
