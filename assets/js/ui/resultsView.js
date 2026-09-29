@@ -135,29 +135,6 @@ function roundsTable(ev, summary) {
   </table></div>${sponsorNote}`;
 }
 
-/** Bảng đã trả / phải trả / chênh lệch của từng người. */
-function ledgerTable(ev, summary) {
-  const rows = ev.people
-    .map((p) => {
-      const bal = summary.chenhLech[p.id];
-      const cls = bal > 0 ? 'amount-pos' : bal < 0 ? 'amount-neg' : '';
-      const text = (bal > 0 ? '+' : '') + fmtNum(bal);
-      const tag = p.id === ev.organizerId ? ' <span class="organizer-tag">Chia tiền</span>' : '';
-      return `<tr class="${p.id === ev.organizerId ? 'is-organizer' : ''}">
-        <td><span class="name-cell">${escapeHtml(p.name)}${tag}</span></td>
-        <td class="num">${fmtNum(summary.daTra[p.id])}</td>
-        <td class="num">${fmtNum(summary.phaiTra[p.id])}</td>
-        <td class="num ${cls}">${text}</td>
-      </tr>`;
-    })
-    .join('');
-
-  return `<div class="table-scroll"><table class="ledger">
-    <thead><tr><th>Người</th><th class="num">Đã trả</th><th class="num">Phải trả</th><th class="num">Chênh lệch</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table></div>`;
-}
-
 /**
  * Cảnh báo về tiền tài trợ đã hứa mà chưa đưa.
  *
@@ -267,11 +244,8 @@ export function eventResultsHtml(ev, { interactive = false, extraHtml = '', with
     ${withStats ? statStrip(ev) : ''}
     ${noPayerNote(ev)}
 
-    <h2 style="margin-top:0;">Từng khoản đã chi</h2>
+    <h2 style="margin-top:0;">Bảng chia tiền</h2>
     ${roundsTable(ev, summary)}
-
-    <h2>Tổng kết từng người</h2>
-    ${ledgerTable(ev, summary)}
     <div class="settlement-section">
       <h2 style="margin-top:0;">Cần chuyển khoản</h2>
       ${unpaidSponsorNote(ev)}
