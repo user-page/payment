@@ -476,9 +476,27 @@ table.rounds-breakdown tr.is-total td {
   background: var(--surface);
 }
 
-table.rounds-breakdown tr.is-sponsor td {
-  color: var(--positive);
-  border-bottom: none;
+/* tên tăng ở đầu cột: canh phải cho thẳng cột số bên dưới */
+table.rounds-breakdown thead th.num { text-align: right; }
+table.rounds-breakdown thead .round-sub {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* cột Tổng của mỗi người — chỗ mắt dừng lại lâu nhất */
+table.rounds-breakdown td.col-sum {
+  font-weight: 700;
+  border-left: 1px solid var(--line);
+}
+
+/* ô của người không tham gia tăng đó: làm mờ để khỏi đọc nhầm là 0 đồng */
+table.rounds-breakdown td.is-out { color: var(--ink-faint); }
+
+.table-note {
+  font-size: 12.5px;
+  color: var(--ink-muted);
+  margin: 8px 0 0;
 }
 
 .name-cell { display: flex; align-items: center; gap: 6px; }

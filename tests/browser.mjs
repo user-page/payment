@@ -436,19 +436,31 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.waitForTimeout(500);
 
   const table = page.locator('table.rounds-breakdown');
-  check('có bảng chia theo từng khoản', await table.isVisible());
+  check('có bảng chia theo từng tăng', await table.isVisible());
 
-  const rows = await table.locator('tbody tr').allInnerTexts();
-  check('liệt kê đủ từng tăng kèm số tiền',
-    rows[0].includes('Tăng 1') && rows[0].includes('900') &&
-    rows[1].includes('Taxi') && rows[1].includes('300'),
-    JSON.stringify(rows.slice(0, 2)));
-  check('mỗi khoản hiện tiền chia mỗi người (900/3=300, 300/2=150)',
-    rows[0].includes('300') && rows[1].includes('150'), JSON.stringify(rows.slice(0, 2)));
-  check('có dòng Tổng chi đúng bằng 900+300',
-    rows.some((r) => r.includes('Tổng chi') && r.includes('1200')), JSON.stringify(rows));
-  check('khoản chỉ 2/3 người tham gia thì ghi đúng số người',
-    rows[1].includes('2'), rows[1]);
+  // Mỗi NGƯỜI một dòng, mỗi TĂNG một cột.
+  // CSS viết hoa tiêu đề cột nên so không phân biệt hoa thường.
+  const head = (await table.locator('thead th').allInnerTexts()).map((t) => t.toLowerCase());
+  check('cột đầu là tên người, các cột sau là từng tăng',
+    head[0].includes('người') && head[1].includes('tăng 1') && head[2].includes('taxi') &&
+    head[3].includes('tổng'),
+    JSON.stringify(head));
+  check('đầu cột mỗi tăng ghi ai trả',
+    head[1].includes('thanglv11') && head[2].includes('hungnn14'), JSON.stringify(head));
+
+  const cells = (row) => table.locator('tbody tr').nth(row).locator('td');
+  // Nhãn "Chia tiền" nằm ở dòng riêng trong ô nên gộp xuống dòng thành dấu cách.
+  const line = async (r) => (await cells(r).allInnerTexts()).join('|').replace(/\n/g, ' ');
+
+  // Tăng 1: 900 chia 3 người = 300. Taxi: 300 chia 2 (p1, p2) = 150.
+  check('ThangLV11 (có cả 2 tăng): 300 + 150, tổng 450',
+    (await line(0)).toLowerCase() === 'thanglv11 chia tiền|300|150|450', await line(0));
+  check('HungNN14 (có cả 2 tăng): 300 + 150, tổng 450',
+    (await line(1)) === 'HungNN14|300|150|450', await line(1));
+  check('PhongTH4 không đi Taxi -> ô đó là dấu —, tổng chỉ 300',
+    (await line(2)) === 'PhongTH4|300|—|300', await line(2));
+  check('dòng cuối là Tổng chi từng tăng và tổng cả buổi',
+    (await line(3)) === 'Tổng chi|900|300|1200', await line(3));
 
   // --- link riêng cho từng buổi, chép ngay trong danh sách
   await page.evaluate(() => {
@@ -489,7 +501,8 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.waitForTimeout(700);
   const text = await page.textContent('#shareView');
   check('người xem qua link cũng thấy bảng chia từng tăng',
-    text.includes('Từng khoản đã chi') && text.includes('Tăng 1') && text.includes('Tổng chi'),
+    text.includes('Từng khoản đã chi') && text.includes('Tăng 1') && text.includes('Tổng chi') &&
+    text.includes('ThangLV11'),
     text.slice(0, 160));
   await page.close();
 }

@@ -41,65 +41,77 @@ function statStrip(ev) {
 }
 
 /**
- * Bảng từng khoản chi: tăng 1, tăng 2, taxi... kèm dòng tổng.
+ * Bảng chia tiền theo từng tăng.
  *
- * Trả lời câu hỏi hay gặp nhất khi nhìn bảng kết quả: "số này ở đâu ra?".
- * Cột "Mỗi người" là phần chia của khoản đó — chia đều cho những ai có tích
- * tham gia khoản đó, làm tròn xuống (xem distributeShares).
+ * Mỗi NGƯỜI một dòng, mỗi TĂNG một cột — nhìn ngang là biết một người phải
+ * trả bao nhiêu cho từng tăng, nhìn dọc là biết một tăng chia cho những ai.
+ *
+ * Ô "—" nghĩa là người đó không tích tham gia tăng ấy, nên không phải trả.
+ *
+ * Số trong ô là phần chia của tăng đó, chia đều cho những ai tham gia và làm
+ * tròn xuống (xem distributeShares). Vì làm tròn xuống, cộng cột có thể hụt
+ * vài nghìn so với dòng "Tổng chi" — đó là phần lẻ cố ý không thu của ai.
  */
 function roundsTable(ev) {
-  const rows = ev.rounds
+  // Tính trước phần chia của từng tăng, tránh tính lại cho mỗi người.
+  const shares = ev.rounds.map((r) => {
+    const joined = (r.thamGiaIds || []).filter((id) => ev.people.some((p) => p.id === id));
+    return distributeShares(r.soTien || 0, joined);
+  });
+
+  const head = ev.rounds
     .map((r, i) => {
-      const joined = (r.thamGiaIds || []).filter((id) => ev.people.some((p) => p.id === id));
-      const share = joined.length ? distributeShares(r.soTien || 0, joined)[joined[0]] : 0;
       const payer = r.nguoiTraId ? personName(ev, r.nguoiTraId) : '— chưa chọn —';
       const place = [r.ngay, r.diaDiem].filter(Boolean).join(' · ');
+      return `<th class="num">
+        ${escapeHtml(r.ten || `Khoản ${i + 1}`)}
+        <div class="round-sub">${escapeHtml(payer)} trả${place ? ` · ${escapeHtml(place)}` : ''}</div>
+      </th>`;
+    })
+    .join('');
 
-      return `<tr>
-        <td>
-          <span class="name-cell">${escapeHtml(r.ten || `Khoản ${i + 1}`)}</span>
-          ${place ? `<div class="round-sub">${escapeHtml(place)}</div>` : ''}
-        </td>
-        <td>${escapeHtml(payer)}</td>
-        <td class="num">${joined.length}</td>
-        <td class="num">${fmtNum(r.soTien || 0)}</td>
-        <td class="num">${fmtNum(share)}</td>
+  const body = ev.people
+    .map((p) => {
+      let sum = 0;
+      const cells = ev.rounds
+        .map((r, i) => {
+          const v = shares[i][p.id];
+          if (v === undefined) return '<td class="num is-out">—</td>';
+          sum += v;
+          return `<td class="num">${fmtNum(v)}</td>`;
+        })
+        .join('');
+
+      const tag = p.id === ev.organizerId ? ' <span class="organizer-tag">Chia tiền</span>' : '';
+      return `<tr class="${p.id === ev.organizerId ? 'is-organizer' : ''}">
+        <td><span class="name-cell">${escapeHtml(p.name)}${tag}</span></td>
+        ${cells}
+        <td class="num col-sum">${fmtNum(sum)}</td>
       </tr>`;
     })
     .join('');
 
+  const perRound = ev.rounds.map((r) => `<td class="num">${fmtNum(r.soTien || 0)}</td>`).join('');
   const total = totalSpent(ev);
   const sponsored = totalSponsored(ev);
 
-  // Tài trợ chỉ hiện khi có, để bảng khỏi rối với buổi không ai bao.
-  const sponsorRow = sponsored
-    ? `<tr class="is-sponsor">
-         <td colspan="3">Trừ tài trợ / bao thêm</td>
-         <td class="num">−${fmtNum(sponsored)}</td>
-         <td class="num"></td>
-       </tr>
-       <tr class="is-total">
-         <td colspan="3">Còn phải chia</td>
-         <td class="num">${fmtNum(Math.max(0, total - sponsored))}</td>
-         <td class="num"></td>
-       </tr>`
+  // Chỉ nhắc tới tài trợ khi có, để bảng khỏi rối với buổi không ai bao.
+  const sponsorNote = sponsored
+    ? `<p class="table-note">Bảng này chưa trừ ${fmtNum(sponsored)} tiền tài trợ — phần trừ
+       nằm ở bảng "Tổng kết từng người" bên dưới.</p>`
     : '';
 
   return `<div class="table-scroll"><table class="ledger rounds-breakdown">
-    <thead><tr>
-      <th>Khoản</th><th>Người trả</th><th class="num">Số người</th>
-      <th class="num">Số tiền</th><th class="num">Mỗi người</th>
-    </tr></thead>
+    <thead><tr><th>Người</th>${head}<th class="num">Tổng</th></tr></thead>
     <tbody>
-      ${rows}
+      ${body}
       <tr class="is-total">
-        <td colspan="3">Tổng chi</td>
+        <td>Tổng chi</td>
+        ${perRound}
         <td class="num">${fmtNum(total)}</td>
-        <td class="num"></td>
       </tr>
-      ${sponsorRow}
     </tbody>
-  </table></div>`;
+  </table></div>${sponsorNote}`;
 }
 
 /** Bảng đã trả / phải trả / chênh lệch của từng người. */
