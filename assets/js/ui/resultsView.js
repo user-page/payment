@@ -51,8 +51,18 @@ function statStrip(ev) {
  * Số trong ô là phần chia của tăng đó, chia đều cho những ai tham gia và làm
  * tròn xuống (xem distributeShares). Vì làm tròn xuống, cộng cột có thể hụt
  * vài nghìn so với dòng "Tổng chi" — đó là phần lẻ cố ý không thu của ai.
+ *
+ * Ba cột cuối khép lại câu chuyện tiền nong của mỗi người:
+ *   Tổng các tăng — cộng ngang các ô bên trái
+ *   Đã ứng        — tiền người đó đã đứng ra trả hộ cả nhóm
+ *   Còn phải trả  — số âm nghĩa là được nhận lại
+ *
+ * "Còn phải trả" lấy thẳng từ computeSummary chứ KHÔNG tự trừ trong bảng này,
+ * để không bao giờ lệch với bảng tổng kết và bảng chuyển khoản bên dưới. Với
+ * buổi có tài trợ, nó sẽ không bằng đúng hiệu của hai cột trước — phần chênh
+ * chính là tài trợ đã được trừ.
  */
-function roundsTable(ev) {
+function roundsTable(ev, summary) {
   // Tính trước phần chia của từng tăng, tránh tính lại cho mỗi người.
   const shares = ev.rounds.map((r) => {
     const joined = (r.thamGiaIds || []).filter((id) => ev.people.some((p) => p.id === id));
@@ -82,33 +92,56 @@ function roundsTable(ev) {
         })
         .join('');
 
+      const ung = summary.daTra[p.id] || 0;
+      const con = (summary.phaiTra[p.id] || 0) - ung;
+      const conCls = con > 0 ? 'amount-neg' : con < 0 ? 'amount-pos' : '';
+
       const tag = p.id === ev.organizerId ? ' <span class="organizer-tag">Chia tiền</span>' : '';
       return `<tr class="${p.id === ev.organizerId ? 'is-organizer' : ''}">
         <td><span class="name-cell">${escapeHtml(p.name)}${tag}</span></td>
         ${cells}
         <td class="num col-sum">${fmtNum(sum)}</td>
+        <td class="num">${ung ? fmtNum(ung) : '—'}</td>
+        <td class="num col-sum ${conCls}">${fmtNum(con)}</td>
       </tr>`;
     })
     .join('');
 
   const perRound = ev.rounds.map((r) => `<td class="num">${fmtNum(r.soTien || 0)}</td>`).join('');
   const total = totalSpent(ev);
+
+  /*
+   * Tổng đã ứng KHÔNG phải lúc nào cũng bằng tổng chi: khoản chưa chọn ai trả
+   * thì không ai ứng cả. Cộng thẳng từ summary thay vì lấy bừa tổng chi.
+   */
+  const ungTotal = ev.people.reduce((n, p) => n + (summary.daTra[p.id] || 0), 0);
   const sponsored = totalSponsored(ev);
 
   // Chỉ nhắc tới tài trợ khi có, để bảng khỏi rối với buổi không ai bao.
-  const sponsorNote = sponsored
-    ? `<p class="table-note">Bảng này chưa trừ ${fmtNum(sponsored)} tiền tài trợ — phần trừ
-       nằm ở bảng "Tổng kết từng người" bên dưới.</p>`
-    : '';
+  const notes = [
+    'Cột <strong>Còn phải trả</strong>: số âm nghĩa là người đó ứng dư, được nhận lại.',
+    sponsored
+      ? `Cột "Tổng các tăng" chưa trừ ${fmtNum(sponsored)} tiền tài trợ, nên nó không bằng đúng
+         hiệu của hai cột kia — phần chênh chính là tài trợ đã được trừ.`
+      : '',
+  ].filter(Boolean);
+  const sponsorNote = `<p class="table-note">${notes.join('<br />')}</p>`;
 
   return `<div class="table-scroll"><table class="ledger rounds-breakdown">
-    <thead><tr><th>Người</th>${head}<th class="num">Tổng</th></tr></thead>
+    <thead><tr>
+      <th>Người</th>${head}
+      <th class="num">Tổng các tăng</th>
+      <th class="num">Đã ứng</th>
+      <th class="num">Còn phải trả</th>
+    </tr></thead>
     <tbody>
       ${body}
       <tr class="is-total">
         <td>Tổng chi</td>
         ${perRound}
         <td class="num">${fmtNum(total)}</td>
+        <td class="num">${fmtNum(ungTotal)}</td>
+        <td class="num"></td>
       </tr>
     </tbody>
   </table></div>${sponsorNote}`;
@@ -247,7 +280,7 @@ export function eventResultsHtml(ev, { interactive = false, extraHtml = '', with
     ${noPayerNote(ev)}
 
     <h2 style="margin-top:0;">Từng khoản đã chi</h2>
-    ${roundsTable(ev)}
+    ${roundsTable(ev, summary)}
 
     <h2>Tổng kết từng người</h2>
     ${ledgerTable(ev, summary)}

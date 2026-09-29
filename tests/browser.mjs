@@ -443,7 +443,7 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   const head = (await table.locator('thead th').allInnerTexts()).map((t) => t.toLowerCase());
   check('cột đầu là tên người, các cột sau là từng tăng',
     head[0].includes('người') && head[1].includes('tăng 1') && head[2].includes('taxi') &&
-    head[3].includes('tổng'),
+    head[3].includes('tổng các tăng') && head[4].includes('đã ứng') && head[5].includes('còn phải trả'),
     JSON.stringify(head));
   check('đầu cột mỗi tăng ghi ai trả',
     head[1].includes('thanglv11') && head[2].includes('hungnn14'), JSON.stringify(head));
@@ -452,15 +452,17 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   // Nhãn "Chia tiền" nằm ở dòng riêng trong ô nên gộp xuống dòng thành dấu cách.
   const line = async (r) => (await cells(r).allInnerTexts()).join('|').replace(/\n/g, ' ');
 
-  // Tăng 1: 900 chia 3 người = 300. Taxi: 300 chia 2 (p1, p2) = 150.
-  check('ThangLV11 (có cả 2 tăng): 300 + 150, tổng 450',
-    (await line(0)).toLowerCase() === 'thanglv11 chia tiền|300|150|450', await line(0));
-  check('HungNN14 (có cả 2 tăng): 300 + 150, tổng 450',
-    (await line(1)) === 'HungNN14|300|150|450', await line(1));
-  check('PhongTH4 không đi Taxi -> ô đó là dấu —, tổng chỉ 300',
-    (await line(2)) === 'PhongTH4|300|—|300', await line(2));
-  check('dòng cuối là Tổng chi từng tăng và tổng cả buổi',
-    (await line(3)) === 'Tổng chi|900|300|1200', await line(3));
+  // Tăng 1: 900 chia 3 người = 300 (p1 ứng). Taxi: 300 chia 2 = 150 (p2 ứng).
+  check('người ứng 900, phải chia 450 -> còn phải trả −450 (được nhận lại)',
+    (await line(0)).toLowerCase() === 'thanglv11 chia tiền|300|150|450|900|-450', await line(0));
+  check('người ứng 300, phải chia 450 -> còn phải trả 150',
+    (await line(1)) === 'HungNN14|300|150|450|300|150', await line(1));
+  check('người không ứng gì, không đi Taxi -> chỉ trả 300',
+    (await line(2)) === 'PhongTH4|300|—|300|—|300', await line(2));
+  check('dòng cuối: tổng từng tăng, tổng chi, tổng đã ứng',
+    (await line(3)) === 'Tổng chi|900|300|1200|1200|', await line(3));
+  check('ghi chú nói rõ số âm là được nhận lại',
+    (await page.textContent('.table-note')).includes('được nhận lại'));
 
   // --- link riêng cho từng buổi, chép ngay trong danh sách
   await page.evaluate(() => {
