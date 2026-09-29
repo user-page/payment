@@ -443,7 +443,7 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   const head = (await table.locator('thead th').allInnerTexts()).map((t) => t.toLowerCase());
   check('cột đầu là tên người, các cột sau là từng tăng',
     head[0].includes('người') && head[1].includes('tăng 1') && head[2].includes('taxi') &&
-    head[3].includes('tổng các tăng') && head[4].includes('đã ứng') && head[5].includes('còn phải trả'),
+    head[3].includes('đã ứng') && head[4].includes('còn phải trả'),
     JSON.stringify(head));
   check('đầu cột chỉ ghi tên tăng, không kèm ngày/địa điểm/người trả',
     head[1].trim() === 'tăng 1' && head[2].trim() === 'taxi', JSON.stringify(head));
@@ -454,13 +454,13 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
 
   // Tăng 1: 900 chia 3 người = 300 (p1 ứng). Taxi: 300 chia 2 = 150 (p2 ứng).
   check('người ứng 900, phải chia 450 -> còn phải trả −450 (được nhận lại)',
-    (await line(0)).toLowerCase() === 'thanglv11 chia tiền|300|150|450|900|-450', await line(0));
+    (await line(0)).toLowerCase() === 'thanglv11 chia tiền|300|150|900|-450', await line(0));
   check('người ứng 300, phải chia 450 -> còn phải trả 150',
-    (await line(1)) === 'HungNN14|300|150|450|300|150', await line(1));
+    (await line(1)) === 'HungNN14|300|150|300|150', await line(1));
   check('người không ứng gì, không đi Taxi -> chỉ trả 300',
-    (await line(2)) === 'PhongTH4|300|—|300|—|300', await line(2));
-  check('dòng cuối: tổng từng tăng, tổng chi, tổng đã ứng',
-    (await line(3)) === 'Tổng chi|900|300|1200|1200|', await line(3));
+    (await line(2)) === 'PhongTH4|300|—|—|300', await line(2));
+  check('dòng cuối: tổng từng tăng và tổng đã ứng',
+    (await line(3)) === 'Tổng chi|900|300|1200|', await line(3));
   check('ghi chú nói rõ số âm là được nhận lại',
     (await page.textContent('.table-note')).includes('được nhận lại'));
 

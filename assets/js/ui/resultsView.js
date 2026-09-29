@@ -52,15 +52,14 @@ function statStrip(ev) {
  * tròn xuống (xem distributeShares). Vì làm tròn xuống, cộng cột có thể hụt
  * vài nghìn so với dòng "Tổng chi" — đó là phần lẻ cố ý không thu của ai.
  *
- * Ba cột cuối khép lại câu chuyện tiền nong của mỗi người:
- *   Tổng các tăng — cộng ngang các ô bên trái
- *   Đã ứng        — tiền người đó đã đứng ra trả hộ cả nhóm
- *   Còn phải trả  — số âm nghĩa là được nhận lại
+ * Hai cột cuối khép lại câu chuyện tiền nong của mỗi người:
+ *   Đã ứng       — tiền người đó đã đứng ra trả hộ cả nhóm
+ *   Còn phải trả — số âm nghĩa là được nhận lại
  *
  * "Còn phải trả" lấy thẳng từ computeSummary chứ KHÔNG tự trừ trong bảng này,
  * để không bao giờ lệch với bảng tổng kết và bảng chuyển khoản bên dưới. Với
- * buổi có tài trợ, nó sẽ không bằng đúng hiệu của hai cột trước — phần chênh
- * chính là tài trợ đã được trừ.
+ * buổi có tài trợ, nó sẽ không bằng đúng tổng các ô bên trái trừ đi phần đã
+ * ứng — phần chênh chính là tài trợ đã được trừ.
  */
 function roundsTable(ev, summary) {
   // Tính trước phần chia của từng tăng, tránh tính lại cho mỗi người.
@@ -77,12 +76,10 @@ function roundsTable(ev, summary) {
 
   const body = ev.people
     .map((p) => {
-      let sum = 0;
       const cells = ev.rounds
         .map((r, i) => {
           const v = shares[i][p.id];
           if (v === undefined) return '<td class="num is-out">—</td>';
-          sum += v;
           return `<td class="num">${fmtNum(v)}</td>`;
         })
         .join('');
@@ -95,15 +92,13 @@ function roundsTable(ev, summary) {
       return `<tr class="${p.id === ev.organizerId ? 'is-organizer' : ''}">
         <td><span class="name-cell">${escapeHtml(p.name)}${tag}</span></td>
         ${cells}
-        <td class="num col-sum">${fmtNum(sum)}</td>
-        <td class="num">${ung ? fmtNum(ung) : '—'}</td>
+        <td class="num col-edge">${ung ? fmtNum(ung) : '—'}</td>
         <td class="num col-sum ${conCls}">${fmtNum(con)}</td>
       </tr>`;
     })
     .join('');
 
   const perRound = ev.rounds.map((r) => `<td class="num">${fmtNum(r.soTien || 0)}</td>`).join('');
-  const total = totalSpent(ev);
 
   /*
    * Tổng đã ứng KHÔNG phải lúc nào cũng bằng tổng chi: khoản chưa chọn ai trả
@@ -116,8 +111,8 @@ function roundsTable(ev, summary) {
   const notes = [
     'Cột <strong>Còn phải trả</strong>: số âm nghĩa là người đó ứng dư, được nhận lại.',
     sponsored
-      ? `Cột "Tổng các tăng" chưa trừ ${fmtNum(sponsored)} tiền tài trợ, nên nó không bằng đúng
-         hiệu của hai cột kia — phần chênh chính là tài trợ đã được trừ.`
+      ? `Đã trừ ${fmtNum(sponsored)} tiền tài trợ, nên "Còn phải trả" không bằng đúng tổng
+         các ô bên trái trừ đi phần đã ứng.`
       : '',
   ].filter(Boolean);
   const sponsorNote = `<p class="table-note">${notes.join('<br />')}</p>`;
@@ -125,7 +120,6 @@ function roundsTable(ev, summary) {
   return `<div class="table-scroll"><table class="ledger rounds-breakdown">
     <thead><tr>
       <th>Người</th>${head}
-      <th class="num">Tổng các tăng</th>
       <th class="num">Đã ứng</th>
       <th class="num">Còn phải trả</th>
     </tr></thead>
@@ -134,8 +128,7 @@ function roundsTable(ev, summary) {
       <tr class="is-total">
         <td>Tổng chi</td>
         ${perRound}
-        <td class="num">${fmtNum(total)}</td>
-        <td class="num">${fmtNum(ungTotal)}</td>
+        <td class="num col-edge">${fmtNum(ungTotal)}</td>
         <td class="num"></td>
       </tr>
     </tbody>

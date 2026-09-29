@@ -472,11 +472,12 @@ table.rounds-breakdown tr.is-total td {
 /* tên tăng ở đầu cột: canh phải cho thẳng cột số bên dưới */
 table.rounds-breakdown thead th.num { text-align: right; }
 
-/* cột Tổng của mỗi người — chỗ mắt dừng lại lâu nhất */
-table.rounds-breakdown td.col-sum {
-  font-weight: 700;
-  border-left: 1px solid var(--line);
-}
+/* vạch ngăn giữa các cột từng tăng và phần tổng kết */
+table.rounds-breakdown td.col-edge,
+table.rounds-breakdown td.col-sum { border-left: 1px solid var(--line); }
+
+/* "Còn phải trả" là con số mắt dừng lại lâu nhất */
+table.rounds-breakdown td.col-sum { font-weight: 700; }
 
 /* ô của người không tham gia tăng đó: làm mờ để khỏi đọc nhầm là 0 đồng */
 table.rounds-breakdown td.is-out { color: var(--ink-faint); }
