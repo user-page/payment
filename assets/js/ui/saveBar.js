@@ -89,12 +89,12 @@ function renderEditBar() {
   bar.classList.toggle('is-dirty', n > 0 || saving);
 
   status.textContent = saving
-    ? 'Đang lưu vào Firebase...'
+    ? 'Đang lưu...'
     : n > 0
       ? `${n} thay đổi chưa lưu`
       : 'Đã lưu hết — không có thay đổi nào đang chờ';
 
-  saveBtn.textContent = saving ? 'Đang lưu...' : 'Lưu vào Firebase';
+  saveBtn.textContent = saving ? 'Đang lưu...' : 'Lưu';
   saveBtn.disabled = saving || n === 0;
   discardBtn.disabled = saving || n === 0;
 }
