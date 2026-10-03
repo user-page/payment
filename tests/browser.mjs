@@ -374,6 +374,83 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.close();
 }
 
+// ===== 2a3. chip người tham gia + QR cho người xem qua link
+{
+  const { page, errors } = await openPage('index.html');
+  await page.click('.tab-btn[data-tab="edit"]');
+  await page.waitForTimeout(300);
+
+  /*
+   * Thanh Lưu KHÔNG được đè lên hàng người tham gia.
+   * Đã từng để position:sticky và nó nuốt mất cú bấm nút X.
+   */
+  await page.fill('#eventName', 'Ăn lòng x');
+  const xBtn = page.locator('#peopleList .chip', { hasText: 'PhongTH4' }).locator('.chip-remove');
+  let covered = null;
+  for (let y = 200; y <= 900; y += 20) {
+    await page.evaluate((v) => window.scrollTo(0, v), y);
+    await page.waitForTimeout(50);
+    const b = await xBtn.boundingBox();
+    if (!b || b.y < 0) continue;
+    const top = await page.evaluate(({ x, yy }) => {
+      const e = document.elementFromPoint(x, yy);
+      return e ? `${e.tagName}.${e.className}` : '';
+    }, { x: b.x + b.width / 2, yy: b.y + b.height / 2 });
+    if (top.includes('savebar')) { covered = { y, top }; break; }
+  }
+  check('thanh Lưu không đè lên hàng người tham gia', !covered,
+    covered ? `scrollY=${covered.y}: ${covered.top}` : '');
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.click('#discardBtn');
+  await page.waitForTimeout(500);
+
+  // --- bấm tên để chọn người đứng ra chia tiền
+  await page.locator('#peopleList .chip', { hasText: 'HungNN14' }).locator('.chip-name').click();
+  await page.waitForTimeout(300);
+  check('bấm tên -> người đó thành người chia tiền',
+    (await page.locator('#peopleList .chip.is-organizer').innerText()).includes('HungNN14'),
+    await page.locator('#peopleList .chip.is-organizer').innerText());
+  check('ô chọn bên dưới đổi theo', (await page.locator('#organizerSelect').inputValue()) === 'p2');
+
+  await page.click('#editSaveBtn');
+  await page.waitForTimeout(700);
+  check('Lưu ghi đúng người chia tiền', (await getDoc(page, 'events/e1')).organizerId === 'p2');
+
+  // --- nút X vẫn xoá, không kiêm đổi người chia tiền
+  const org = (await getDoc(page, 'events/e1')).organizerId;
+  const truoc = (await getDoc(page, 'events/e1')).people.length;
+  await page.locator('#peopleList .chip', { hasText: 'PhongTH4' }).locator('.chip-remove').click();
+  await page.waitForTimeout(700);
+  check('bấm X xoá được người', (await getDoc(page, 'events/e1')).people.length === truoc - 1);
+  check('bấm X không làm đổi người chia tiền', (await getDoc(page, 'events/e1')).organizerId === org);
+
+  check('phần chip không lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ===== 2a4. QR: người xem qua link cũng thấy và tải về được
+{
+  const { page, errors } = await openPage('index.html?share=e1', { signedInAs: null });
+  await page.waitForTimeout(700);
+
+  const img = page.locator('#organizerQrImg');
+  check('người xem qua link thấy ảnh QR', await img.isVisible());
+
+  const link = page.locator('.qr-download');
+  check('có nút tải ảnh QR về', await link.isVisible());
+  check('nút tải trỏ đúng ảnh và đặt sẵn tên file',
+    (await link.getAttribute('href')) === (await img.getAttribute('src')) &&
+    (await link.getAttribute('download')) === 'qr-thanglv11.png',
+    await link.getAttribute('download'));
+
+  await img.click();
+  await page.waitForTimeout(300);
+  check('bấm QR thì phóng to được', (await page.locator('.qr-modal-overlay').count()) === 1);
+  check('trang chia sẻ không lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
 // ============ 2b. gõ tiền rồi bấm Cmd+S ngay, con trỏ còn trong ô
 {
   const { page, errors } = await openPage('index.html');

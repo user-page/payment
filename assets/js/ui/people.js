@@ -65,6 +65,7 @@ export function renderPeople() {
 
   for (const p of ev.people) {
     const isOrganizer = p.id === ev.organizerId;
+
     const remove = el('button', {
       type: 'button',
       class: 'chip-remove',
@@ -72,12 +73,25 @@ export function renderPeople() {
       innerHTML: '<span class="icon-x">&#10005;</span>',
       onclick: () => actions.onRemovePerson(p.id),
     });
-    list.append(
-      el('span', { class: `chip${isOrganizer ? ' is-organizer' : ''}` }, [
-        el('span', { textContent: p.name + (isOrganizer ? ' · chia tiền' : '') }),
-        remove,
-      ])
-    );
+
+    /*
+     * Bấm thẳng vào tên để chọn người đứng ra chia tiền — nhanh hơn kéo xuống
+     * ô chọn bên dưới. Gắn vào riêng cái tên chứ không gắn cả chip, để bấm nút
+     * X vẫn là xoá chứ không kiêm luôn việc đổi người chia tiền.
+     */
+    const name = el('button', {
+      type: 'button',
+      class: 'chip-name',
+      title: isOrganizer ? `${p.name} đang đứng ra chia tiền` : `Chọn ${p.name} đứng ra chia tiền`,
+      textContent: p.name + (isOrganizer ? ' · chia tiền' : ''),
+      onclick: () => {
+        if (p.id === ev.organizerId) return;
+        editEvent({ organizerId: p.id });
+        renderPeople();
+      },
+    });
+
+    list.append(el('span', { class: `chip${isOrganizer ? ' is-organizer' : ''}` }, [name, remove]));
   }
 
   renderOrganizerPicker(ev);

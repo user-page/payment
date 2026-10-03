@@ -195,7 +195,8 @@ export async function loadEvent(eventId, { withQr = true } = {}) {
 
 /** Link chia sẻ một buổi: ai có link cũng xem được, không cần đăng nhập. */
 export async function loadPublicEvent(eventId) {
-  const ev = await loadEvent(eventId, { withQr: false });
+  // withQr: người xem qua link cần thấy ảnh QR để quét mà chuyển khoản.
+  const ev = await loadEvent(eventId, { withQr: true });
   if (!ev) throw new Error('Không tìm thấy buổi nhậu này.');
   return ev;
 }

@@ -5,7 +5,7 @@
  * xảy ra ngoài đời, không phải bản nháp đang soạn.
  */
 import { byId, el, copyText, showQrModal } from '../utils/dom.js';
-import { fmtNum, parseMoney, escapeHtml } from '../utils/format.js';
+import { fmtNum, parseMoney } from '../utils/format.js';
 import {
   computeSummary,
   computeSettlement,
@@ -105,7 +105,7 @@ export function renderResults() {
   body.innerHTML =
     // withStats:false — tab này đã có sẵn dải thống kê riêng trong index.html
     // (setStats() điền vào), thêm lần nữa là hiện hai dải giống hệt nhau.
-    eventResultsHtml(ev, { interactive: true, extraHtml: organizerQrHtml(ev), withStats: false }) +
+    eventResultsHtml(ev, { interactive: true, withStats: false }) +
     `<div class="results-footer">
        <span class="toast" id="copyToast">Đã sao chép</span>
        <button class="btn btn-ghost btn-small" id="shareBtn" type="button">Chia sẻ (chỉ xem)</button>
@@ -125,14 +125,6 @@ function setStats(ev) {
   byId('statPeople').textContent = String(ev?.people.length ?? 0);
 }
 
-function organizerQrHtml(ev) {
-  const organizer = ev.people.find((p) => p.id === ev.organizerId);
-  if (!organizer?.qr) return '';
-  return `<div class="organizer-qr-card">
-    <img id="organizerQrImg" src="${organizer.qr}" alt="QR chuyển khoản cho ${escapeHtml(organizer.name)}" />
-    <div class="organizer-qr-caption">Quét QR để chuyển khoản trực tiếp cho <strong>${escapeHtml(organizer.name)}</strong></div>
-  </div>`;
-}
 
 function wireResultActions(ev) {
   const organizer = ev.people.find((p) => p.id === ev.organizerId);

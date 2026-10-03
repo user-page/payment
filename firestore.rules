@@ -68,7 +68,13 @@ service cloud.firestore {
 
     // -------------------------------------------------------------------- ảnh QR
     match /qrs/{personId} {
-      allow get: if isAdmin() || owns(resource.data);
+      /*
+       * Ai có link chia sẻ cũng xem được ảnh QR, giống buổi nhậu.
+       * Đó chính là mục đích của tấm QR: để người khác quét mà chuyển khoản.
+       * Vẫn KHÔNG cho liệt kê cả kho (không có `list`), nên phải biết đúng id
+       * của người đó — id ngẫu nhiên, chỉ lộ ra qua chính buổi nhậu ấy.
+       */
+      allow get: if true;
 
       allow create: if isAdmin()
         || (signedIn() && request.resource.data.ownerId == request.auth.uid);

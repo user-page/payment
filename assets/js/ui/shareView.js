@@ -9,7 +9,7 @@
  * (id ngẫu nhiên, không đoán được), nhưng không liệt kê được toàn bộ, không
  * sửa được, và không đọc được ảnh QR.
  */
-import { byId, el } from '../utils/dom.js';
+import { byId, el, showQrModal } from '../utils/dom.js';
 import { escapeHtml } from '../utils/format.js';
 import { loadPublicEvent, loadPublicOwner } from '../data/events.js';
 import { aggregateUnpaidDebts } from '../domain/settlement.js';
@@ -69,6 +69,9 @@ export async function showSharedEvent(eventId) {
       shareHeader(ev.name || 'Buổi nhậu', ev.eventDate ? `Ngày nhậu: ${ev.eventDate}` : '') +
       eventResultsHtml(ev) +
       SHARE_FOOTER;
+
+    // Bấm vào QR để phóng to — trên điện thoại ảnh nhỏ khó quét.
+    byId('organizerQrImg')?.addEventListener('click', (e) => showQrModal(e.target.src));
   } catch (err) {
     view.innerHTML = `<div class="empty-state">${escapeHtml(err.message)}</div>`;
   }

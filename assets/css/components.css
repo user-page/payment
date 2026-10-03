@@ -585,10 +585,14 @@ table.rounds-breakdown td.is-out { color: var(--ink-faint); }
  * Luôn hiện, và dính lên đầu khi cuộn — để lúc nào cũng thấy được đang có
  * thay đổi chưa lưu hay không, không phải cuộn xuống đáy tìm thanh lưu.
  */
+/*
+ * KHÔNG dùng position:sticky ở đây.
+ *
+ * Đã thử: thanh dính lên đỉnh thì khi cuộn nó nằm ĐÈ lên hàng người tham gia,
+ * nuốt mất cú bấm — bấm nút X xoá người hay bấm chip đều trúng thanh Lưu.
+ * Thanh Lưu nổi ở đáy màn hình đã lo việc "lúc nào cũng bấm Lưu được" rồi.
+ */
 .edit-savebar {
-  position: sticky;
-  top: 0;
-  z-index: 30;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -687,3 +691,17 @@ table.rounds-breakdown td.is-out { color: var(--ink-faint); }
 
 /* nút Chia sẻ trên từng thẻ buổi nhậu trong danh sách */
 .event-card .event-share-btn { white-space: nowrap; }
+
+/* tên trong chip bấm được để chọn người đứng ra chia tiền */
+.chip-name {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.chip:not(.is-organizer) .chip-name:hover { color: var(--accent-strong); text-decoration: underline; }
+
+/* nút tải ảnh QR về, hiện cả ở trang chia sẻ */
+.organizer-qr-card .qr-download { white-space: nowrap; }

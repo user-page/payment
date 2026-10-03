@@ -8,7 +8,7 @@
  * Các hàm ở đây chỉ TRẢ VỀ CHUỖI, không tự gắn vào trang và không gắn sự kiện —
  * phần tương tác do bên gọi tự lo.
  */
-import { fmtNum, escapeHtml } from '../utils/format.js';
+import { fmtNum, escapeHtml, slugify } from '../utils/format.js';
 import {
   computeSummary,
   computeSettlement,
@@ -176,6 +176,30 @@ export function noPayerNote(ev) {
 }
 
 /**
+ * Thẻ QR của người đứng ra chia tiền, kèm nút tải ảnh về.
+ *
+ * Dùng chung cho cả tab "Các buổi nhậu" lẫn link chia sẻ — người được gửi link
+ * cần thấy đúng tấm QR này để quét, hoặc tải về rồi mở bằng app ngân hàng.
+ *
+ * Ảnh là chuỗi data URL nên nút tải về chạy được ngay, không cần máy chủ.
+ */
+export function organizerQrHtml(ev) {
+  const organizer = ev.people.find((p) => p.id === ev.organizerId);
+  if (!organizer?.qr) return '';
+
+  const ten = escapeHtml(organizer.name);
+  const file = `qr-${slugify(organizer.name) || 'chuyen-khoan'}.png`;
+
+  return `<div class="organizer-qr-card">
+    <img id="organizerQrImg" src="${organizer.qr}" alt="QR chuyển khoản cho ${ten}" />
+    <div class="organizer-qr-caption">
+      Quét QR để chuyển khoản trực tiếp cho <strong>${ten}</strong>
+    </div>
+    <a class="btn btn-small qr-download" href="${organizer.qr}" download="${escapeHtml(file)}">Tải ảnh QR về</a>
+  </div>`;
+}
+
+/**
  * Danh sách chuyển khoản.
  * @param {boolean} interactive true thì hiện ô nhập tiền đã trả và nút bấm được
  */
@@ -227,9 +251,8 @@ function settlementList(ev, settlement, interactive) {
  * @param {object} ev
  * @param {object} [opts]
  * @param {boolean} [opts.interactive=false] cho phép sửa trạng thái trả tiền
- * @param {string}  [opts.extraHtml=''] chèn thêm vào mục chuyển khoản (VD: ảnh QR)
  */
-export function eventResultsHtml(ev, { interactive = false, extraHtml = '', withStats = true } = {}) {
+export function eventResultsHtml(ev, { interactive = false, withStats = true } = {}) {
   if (!ev.people?.length || !ev.rounds?.length) {
     return '<div class="empty-state">Buổi này chưa có đủ dữ liệu để hiển thị.</div>';
   }
@@ -249,7 +272,7 @@ export function eventResultsHtml(ev, { interactive = false, extraHtml = '', with
     <div class="settlement-section">
       <h2 style="margin-top:0;">Cần chuyển khoản</h2>
       ${unpaidSponsorNote(ev)}
-      ${extraHtml}
+      ${organizerQrHtml(ev)}
       ${settlementList(ev, settlement, interactive)}
     </div>
   </section>`;
