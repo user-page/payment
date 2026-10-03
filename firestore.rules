@@ -5,6 +5,7 @@ rules_version = '2';
 //
 // Tóm tắt:
 //   - Mỗi người chỉ sửa/xoá/liệt kê được buổi của chính mình; admin làm được với mọi buổi.
+//   - Chỉ admin đổi được chủ của một buổi (để dọn buổi nằm sai tài khoản).
 //   - Ai có link (biết id buổi) thì XEM được buổi đó mà không cần đăng nhập — đó là
 //     link chia sẻ chỉ-xem. Không ai liệt kê được toàn bộ các buổi.
 //   - Ảnh QR chỉ chủ buổi và admin đọc được.
@@ -50,11 +51,25 @@ service cloud.firestore {
         && request.resource.data.ownerId == request.auth.uid
         && request.resource.data.ownerUsername == myUsername();
 
-      // Không ai được đổi chủ của một buổi.
+      /*
+       * Ngày tạo không bao giờ đổi.
+       *
+       * Chủ buổi cũng vậy — TRỪ admin. Đăng nhập-bằng-tên rất dễ sinh hai tài
+       * khoản của cùng một người (`vthang1510` và `vthang1510-gmail-com`), và
+       * buổi nằm ở tài khoản nào thì chỉ tài khoản đó thấy nó trong danh sách.
+       * Admin cần đường dọn lại chuyện đó — xem claimEvent() trong
+       * assets/js/data/events.js, chỗ duy nhất trong app đổi hai trường này.
+       *
+       * Ở đây không kiểm tra được ownerId có khớp ownerUsername hay không
+       * (rules không tra được bảng người dùng), nên phần đó do claimEvent()
+       * giữ: nó lấy cả hai từ phiên đăng nhập hiện tại, không nhận từ ngoài vào.
+       */
       allow update: if (isAdmin() || owns(resource.data))
-        && request.resource.data.ownerId == resource.data.ownerId
-        && request.resource.data.ownerUsername == resource.data.ownerUsername
-        && request.resource.data.createdAt == resource.data.createdAt;
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (isAdmin() || (
+             request.resource.data.ownerId == resource.data.ownerId
+             && request.resource.data.ownerUsername == resource.data.ownerUsername
+           ));
 
       allow delete: if isAdmin() || owns(resource.data);
     }

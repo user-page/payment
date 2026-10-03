@@ -690,7 +690,8 @@ table.rounds-breakdown td.is-out { color: var(--ink-faint); }
 .save-flash.is-error { background: var(--negative); color: #fff; }
 
 /* nút Chia sẻ trên từng thẻ buổi nhậu trong danh sách */
-.event-card .event-share-btn { white-space: nowrap; }
+.event-card .event-share-btn,
+.event-card .event-claim-btn { white-space: nowrap; }
 
 /* tên trong chip bấm được để chọn người đứng ra chia tiền */
 .chip-name {

@@ -12,7 +12,7 @@ import { today } from './utils/format.js';
 import { byId, copyText, flashMessage } from './utils/dom.js';
 
 import { isConfigured } from './data/client.js';
-import { listEvents, loadEvent, createEvent, deleteEvent } from './data/events.js';
+import { listEvents, loadEvent, createEvent, deleteEvent, claimEvent } from './data/events.js';
 import { addPerson, removePerson, uploadQr, clearQr, setPaidAmount, setPaidFlag } from './data/people.js';
 import { addRound, removeRound } from './data/rounds.js';
 import { addSponsor, removeSponsor, updateSponsor } from './data/sponsors.js';
@@ -102,6 +102,31 @@ const actions = {
       await deleteEvent(currentEventId);
       await refreshAndSelect();
     }, 'Không xoá được buổi nhậu.');
+  },
+
+  /**
+   * Admin nhận một buổi của tài khoản khác về tài khoản mình.
+   *
+   * Hỏi lại trước khi làm: đây là thao tác đổi chủ sở hữu, và sau đó tài khoản
+   * cũ sẽ không còn thấy buổi này trong danh sách của họ nữa.
+   */
+  onClaimEvent(ev) {
+    const { user } = getState();
+    const ten = ev.name || 'chưa đặt tên';
+    const cu = ev.ownerUsername || '(không rõ)';
+    if (!window.confirm(
+      `Chuyển buổi "${ten}" từ tài khoản ${cu} sang ${user?.username}?\n\n`
+      + `Sau đó ${cu} sẽ không còn thấy buổi này trong danh sách của họ.`
+    )) return;
+
+    return mutate(async () => {
+      const { moved, from } = await claimEvent(ev.id);
+      await refreshAndSelect(ev.id);
+      flashMessage(
+        moved ? `Đã chuyển "${ten}" từ ${from} sang ${user?.username}` : `"${ten}" đã thuộc tài khoản này rồi`,
+        'ok'
+      );
+    }, 'Không chuyển được buổi nhậu sang tài khoản này.');
   },
 
   // Các thao tác trong một buổi đều cần biết buổi đang mở; gom lại cho gọn.

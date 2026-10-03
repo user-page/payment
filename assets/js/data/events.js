@@ -261,6 +261,55 @@ export async function createEvent({ name, eventDate }) {
   return { id: ref.id };
 }
 
+/**
+ * Admin nhận một buổi về CHÍNH tài khoản đang đăng nhập.
+ *
+ * Vì sao cần: đăng nhập-bằng-tên rất dễ sinh hai tài khoản của cùng một người
+ * (`vthang1510` và `vthang1510-gmail-com`), mà buổi nằm ở tài khoản nào thì
+ * chỉ tài khoản đó thấy nó trong danh sách, và link "chia sẻ tổng hợp" cũng
+ * chỉ liệt kê buổi của tài khoản đó.
+ *
+ * Cố tình KHÔNG nhận uid/tên từ bên ngoài: cả hai lấy từ phiên đăng nhập hiện
+ * tại nên không bao giờ lệch nhau, và cũng không có đường nào gán buổi cho một
+ * tài khoản bất kỳ. firestore.rules không tra được bảng người dùng để tự kiểm
+ * tra chỗ này, nên đây là nơi giữ bất biến đó.
+ *
+ * Ba thay đổi phải đi cùng nhau trong một giao dịch, nếu không buổi sẽ nằm ở
+ * tài khoản mới mà danh sách chia sẻ vẫn trỏ về tài khoản cũ:
+ *   1. events/{id}       — đổi ownerId + ownerUsername
+ *   2. owners/{chủ cũ}   — bỏ id buổi ra
+ *   3. owners/{chủ mới}  — thêm id buổi vào
+ *
+ * KHÔNG đi qua mutateEvent(): editableFields() cố tình bỏ hai trường chủ sở
+ * hữu ra, để mọi đường ghi thông thường không bao giờ đổi được chủ buổi.
+ *
+ * @returns {Promise<{moved: boolean, from: string}>} `moved:false` nếu buổi đã
+ *   thuộc tài khoản này rồi (bấm hai lần không gây hại).
+ */
+export async function claimEvent(eventId) {
+  const me = currentIdentity();
+  if (!me) throw new Error('Chưa đăng nhập.');
+  if (!me.isAdmin) throw new Error('Chỉ admin mới chuyển được buổi nhậu sang tài khoản khác.');
+  if (!me.username) throw new Error('Tài khoản này không có tên đăng nhập để nhận buổi về.');
+
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(eventRef(eventId));
+    if (!snap.exists()) throw new Error('Buổi nhậu này không còn tồn tại.');
+
+    const ev = toEvent(snap.id, snap.data());
+    if (ev.ownerId === me.id && ev.ownerUsername === me.username) {
+      return { moved: false, from: ev.ownerUsername };
+    }
+
+    tx.update(eventRef(eventId), { ownerId: me.id, ownerUsername: me.username });
+    if (ev.ownerUsername && ev.ownerUsername !== me.username) {
+      tx.set(ownerRef(ev.ownerUsername), { eventIds: arrayRemove(eventId) }, { merge: true });
+    }
+    tx.set(ownerRef(me.username), { uid: me.id, eventIds: arrayUnion(eventId) }, { merge: true });
+    return { moved: true, from: ev.ownerUsername };
+  }).catch(rethrow('Không chuyển được buổi nhậu'));
+}
+
 /** Sửa tên, ngày, người chia tiền. */
 export function updateEvent(eventId, patch) {
   return mutateEvent(eventId, (ev) => {

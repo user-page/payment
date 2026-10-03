@@ -75,6 +75,26 @@ export function renderEventList() {
       })
     );
 
+    /*
+     * Chỉ admin, và chỉ với buổi của tài khoản khác: nhận buổi đó về tài khoản
+     * mình. Dùng khi một buổi nằm sai tài khoản — xem claimEvent() trong
+     * data/events.js. Tên tài khoản cũ đã hiện ở thẻ .meta ngay phía trên.
+     */
+    if (isAdmin && e.ownerId !== user?.id) {
+      card.append(
+        el('button', {
+          type: 'button',
+          class: 'btn btn-ghost btn-small event-claim-btn',
+          textContent: 'Nhận về',
+          title: `Chuyển buổi này từ ${e.ownerUsername || 'tài khoản khác'} sang ${user?.username}`,
+          onclick: (evt) => {
+            evt.stopPropagation();
+            actions.onClaimEvent(e);
+          },
+        })
+      );
+    }
+
     list.append(card);
   }
 

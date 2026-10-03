@@ -230,14 +230,16 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
     JSON.stringify(r2));
 
   // --- xoá người: dọn mọi chỗ trỏ tới họ
-  await page.locator('#peopleList .chip', { hasText: 'PhongTH4' }).locator('button').click();
+  // .chip-remove, không phải 'button': chip giờ có hai nút (tên để chọn người
+  // chia tiền, dấu x để xoá), locator('button') sẽ khớp cả hai.
+  await page.locator('#peopleList .chip', { hasText: 'PhongTH4' }).locator('.chip-remove').click();
   await page.waitForTimeout(400);
   ev = await getDoc(page, 'events/e1');
   check('xoá người khỏi danh sách', !ev.people.some((p) => p.id === 'p3'));
   check('xoá người -> gỡ họ khỏi mọi khoản chi', ev.rounds.every((r) => !r.thamGiaIds.includes('p3')));
 
   // --- xoá người đang đứng ra chia tiền (có QR): chuyển cho người khác, xoá luôn QR
-  await page.locator('#peopleList .chip', { hasText: 'ThangLV11' }).locator('button').click();
+  await page.locator('#peopleList .chip', { hasText: 'ThangLV11' }).locator('.chip-remove').click();
   await page.waitForTimeout(400);
   ev = await getDoc(page, 'events/e1');
   check('xoá người chia tiền -> tự chọn người khác', ev.organizerId === 'p2', ev.organizerId);
@@ -580,7 +582,7 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.waitForTimeout(700);
   const text = await page.textContent('#shareView');
   check('người xem qua link cũng thấy bảng chia từng tăng',
-    text.includes('Từng khoản đã chi') && text.includes('Tăng 1') && text.includes('Tổng chi') &&
+    text.includes('Bảng chia tiền') && text.includes('Tăng 1') && text.includes('Tổng chi') &&
     text.includes('ThangLV11'),
     text.slice(0, 160));
   await page.close();
@@ -603,6 +605,127 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   check('tab Ai chưa trả: không báo lỗi', !(await page.textContent('#debtStatus')).includes('lỗi'),
     await page.textContent('#debtStatus'));
   check('tab Ai chưa trả: không lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ===== 2d2. admin nhận buổi của tài khoản khác về tài khoản mình
+{
+  /*
+   * Tình huống thật: đăng nhập-bằng-tên sinh ra hai tài khoản của cùng một
+   * người (`vthang1510` và `vthang1510-gmail-com`), buổi nhậu nằm ở tài khoản
+   * thứ hai nên link "chia sẻ tổng hợp" của tài khoản admin trống trơn.
+   */
+  const seed = structuredClone(SEED);
+  seed.docs['events/e1'].ownerId = 'u2';
+  seed.docs['events/e1'].ownerUsername = 'vthang1510-gmail-com';
+  seed.docs['owners/vthang1510-gmail-com'] = { uid: 'u2', eventIds: ['e1'] };
+  delete seed.docs['owners/vthang1510'];
+
+  const { page, errors } = await openPage('index.html', { seed });
+  await page.click('.tab-btn[data-tab="list"]');
+  await page.waitForTimeout(300);
+
+  const card = page.locator('#eventListBody .event-card').first();
+  check('admin thấy tên tài khoản đang giữ buổi', (await card.textContent()).includes('vthang1510-gmail-com'),
+    await card.textContent());
+
+  const claim = card.locator('.event-claim-btn');
+  check('có nút "Nhận về" trên buổi của tài khoản khác', (await claim.count()) === 1);
+
+  await claim.click();
+  await page.waitForTimeout(900);
+
+  const ev = await getDoc(page, 'events/e1');
+  check('nhận về -> đổi ownerId sang tài khoản đang đăng nhập', ev.ownerId === 'u1', ev.ownerId);
+  check('nhận về -> đổi ownerUsername theo', ev.ownerUsername === 'vthang1510', ev.ownerUsername);
+  check('nhận về -> KHÔNG đổi ngày tạo (rules cũng chặn)',
+    ev.createdAt === '2026-09-20T10:00:00Z', ev.createdAt);
+  check('nhận về -> không làm hỏng dữ liệu trong buổi',
+    ev.people.length === 3 && ev.rounds[0].soTien === 900, JSON.stringify(ev.rounds));
+
+  // Thiếu bước này thì buổi thuộc tài khoản mới mà link chia sẻ tổng hợp vẫn
+  // trỏ về tài khoản cũ — đúng kiểu lỗi mà giao dịch phải chặn.
+  const chuMoi = await getDoc(page, 'owners/vthang1510');
+  const chuCu = await getDoc(page, 'owners/vthang1510-gmail-com');
+  check('nhận về -> thêm buổi vào danh sách chia sẻ của chủ mới',
+    chuMoi?.eventIds?.includes('e1') && chuMoi.uid === 'u1', JSON.stringify(chuMoi));
+  check('nhận về -> bỏ buổi khỏi danh sách chia sẻ của chủ cũ',
+    !chuCu?.eventIds?.includes('e1'), JSON.stringify(chuCu));
+
+  // Chuyển xong thì không còn gì để chuyển: nút phải biến mất, nếu không người
+  // dùng bấm tiếp và không hiểu vì sao không có gì xảy ra.
+  await page.waitForTimeout(300);
+  check('chuyển xong -> nút "Nhận về" biến mất',
+    (await page.locator('#eventListBody .event-claim-btn').count()) === 0);
+  check('nhận buổi về không gây lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ===== 2d3. người thường KHÔNG có nút nhận buổi của người khác
+{
+  const seed = structuredClone(SEED);
+  seed.users['hung@ctn.example.com'] = { uid: 'u2', email: 'hung@ctn.example.com', pw: PASSWORD };
+
+  const { page } = await openPage('index.html', { seed, signedInAs: 'hung@ctn.example.com' });
+  await page.click('.tab-btn[data-tab="list"]');
+  await page.waitForTimeout(300);
+
+  /*
+   * Người thường không liệt kê được buổi của người khác (listEvents lọc theo
+   * ownerId), nên danh sách trống và không có nút nào để bấm. Đó là điều hai
+   * phép thử dưới đây chứng minh — KHÔNG phải chứng minh điều kiện `isAdmin`
+   * ở nút trong results.js: bỏ điều kiện đó ra thì hai phép thử này vẫn đạt
+   * (đã thử bằng cách sửa hỏng có chủ ý). Điều kiện đó là lớp chặn thứ hai cho
+   * trường hợp listEvents về sau trả về nhiều hơn, và không có test nào phủ.
+   * Lớp chặn thật, có test, nằm ở claimEvent() ngay bên dưới.
+   */
+  check('người thường không thấy buổi của người khác trong danh sách',
+    (await page.locator('#eventListBody .event-card').count()) === 0);
+  check('danh sách trống -> không có nút "Nhận về" nào để bấm',
+    (await page.locator('.event-claim-btn').count()) === 0);
+  check('người thường không thấy nhãn admin', !(await page.textContent('#userBar')).includes('Admin'));
+
+  /*
+   * Ẩn nút chỉ là chuyện giao diện. Gọi thẳng vào tầng dữ liệu để chắc rằng
+   * người thường không đổi được chủ buổi dù có gọi tay trong console.
+   * (firestore.rules cũng chặn, nhưng Firebase giả ở đây không áp rules —
+   * phần rules phải tự đọc lại khi đăng lên Console.)
+   */
+  const err = await page.evaluate(async () => {
+    const m = await import('/assets/js/data/events.js');
+    try {
+      await m.claimEvent('e1');
+      return '';
+    } catch (e) {
+      return e.message;
+    }
+  });
+  check('người thường gọi thẳng claimEvent -> bị từ chối', err.includes('Chỉ admin'), err || '(không ném lỗi)');
+  check('người thường gọi claimEvent -> buổi vẫn giữ nguyên chủ',
+    (await getDoc(page, 'events/e1')).ownerUsername === 'vthang1510');
+  await page.close();
+}
+
+// ===== 2d4. admin bấm "Nhận về" hai lần: lần hai không làm gì, không nhân đôi
+{
+  const seed = structuredClone(SEED);
+  seed.docs['events/e1'].ownerId = 'u2';
+  seed.docs['events/e1'].ownerUsername = 'vthang1510-gmail-com';
+  seed.docs['owners/vthang1510-gmail-com'] = { uid: 'u2', eventIds: ['e1'] };
+
+  const { page } = await openPage('index.html', { seed });
+  const call = () => page.evaluate(async () => {
+    const m = await import('/assets/js/data/events.js');
+    return m.claimEvent('e1');
+  });
+
+  check('lần đầu báo đã chuyển, kèm tên chủ cũ',
+    JSON.stringify(await call()) === '{"moved":true,"from":"vthang1510-gmail-com"}');
+  check('lần hai báo không có gì để chuyển',
+    JSON.stringify(await call()) === '{"moved":false,"from":"vthang1510"}');
+  check('gọi hai lần không nhân đôi id trong danh sách chia sẻ',
+    (await getDoc(page, 'owners/vthang1510')).eventIds.filter((id) => id === 'e1').length === 1,
+    JSON.stringify((await getDoc(page, 'owners/vthang1510')).eventIds));
   await page.close();
 }
 
