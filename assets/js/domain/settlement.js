@@ -27,12 +27,126 @@ export function distributeShares(total, ids) {
 }
 
 /**
+ * Lọc ra các cặp "ai mời ai" dùng được của MỘT khoản chi.
+ *
+ * `r.ganhHo` có dạng { id người được mời: id người mời }. Hàm này là nơi DUY
+ * NHẤT định nghĩa thế nào là một cặp hợp lệ, để tầng dữ liệu (lúc dọn dẹp) và
+ * tầng tính tiền không bao giờ hiểu khác nhau.
+ *
+ * Bỏ cặp khi:
+ *   - một trong hai người đã rời buổi
+ *   - người được mời không tham gia khoản này (không có phần nào để gánh)
+ *   - tự mời chính mình
+ *   - NGƯỜI MỜI lại đang được người khác mời
+ *
+ * Luật cuối chặn dây chuyền (A mời B, B mời C) và vòng lặp (A mời B, B mời A).
+ * Chỉ cho một tầng: đời thật không ai mời dây chuyền, mà bỏ luật này thì phải
+ * viết thuật toán dò vòng và quyết định thứ tự áp dụng — nhiều chỗ sai hơn
+ * hẳn so với thứ nó giải quyết được.
+ *
+ * Nhờ chỉ còn một tầng, thứ tự áp dụng các cặp không ảnh hưởng kết quả.
+ *
+ * NGƯỜI MỜI không bắt buộc phải tham gia khoản đó: có người không dự tăng ấy
+ * nhưng vẫn nhận trả hộ phần của bạn mình.
+ *
+ * @param {object} r         khoản chi
+ * @param {Set<string>} ids  id những người còn trong buổi
+ */
+export function ganhHoHopLe(r, ids) {
+  const joined = new Set((r.thamGiaIds || []).filter((id) => ids.has(id)));
+  const raw = {};
+  for (const [duocMoi, nguoiMoi] of Object.entries(r.ganhHo || {})) {
+    if (!ids.has(duocMoi) || !ids.has(nguoiMoi)) continue;
+    if (duocMoi === nguoiMoi) continue;
+    if (!joined.has(duocMoi)) continue;
+    raw[duocMoi] = nguoiMoi;
+  }
+
+  const out = {};
+  for (const [duocMoi, nguoiMoi] of Object.entries(raw)) {
+    if (Object.hasOwn(raw, nguoiMoi)) continue; // người mời lại đang được mời
+    out[duocMoi] = nguoiMoi;
+  }
+  return out;
+}
+
+/**
+ * Phần phải trả của từng người cho MỘT khoản chi, đã tính chuyện mời nhau.
+ *
+ * Chia đều trước, DỜI phần của người được mời sang người mời sau — chứ không
+ * nhân trọng số rồi chia lại. Hai cách nghe như nhau nhưng khác ở làm tròn:
+ * distributeShares làm tròn xuống và bỏ phần lẻ, nên chia lại theo trọng số
+ * sẽ cho ra tổng khác với chia đều. Dời phần sau khi chia thì tổng của khoản
+ * KHÔNG đổi, dù có bao nhiêu cặp mời đi nữa.
+ *
+ * Người được mời còn lại 0 (khác hẳn `undefined` = không tham gia khoản này).
+ *
+ * @returns {Object} { id người: số tiền } — chỉ có key của người tham gia,
+ *   cộng thêm người mời dù họ không tham gia.
+ */
+export function roundShares(ev, r) {
+  const ids = new Set(ev.people.map((p) => p.id));
+  const joined = (r.thamGiaIds || []).filter((id) => ids.has(id));
+  const shares = distributeShares(r.soTien || 0, joined);
+
+  for (const [duocMoi, nguoiMoi] of Object.entries(ganhHoHopLe(r, ids))) {
+    shares[nguoiMoi] = (shares[nguoiMoi] || 0) + shares[duocMoi];
+    shares[duocMoi] = 0;
+  }
+  return shares;
+}
+
+/**
+ * Chuyển phần giảm trừ tài trợ của người được mời sang người đã mời họ.
+ *
+ * Vì sao cần: tài trợ được trừ đều cho MỌI người trong buổi. Người được mời
+ * không phải trả gì, nên phần giảm trừ của họ sẽ đẩy "phải trả" xuống ÂM —
+ * app sẽ bảo người được mời còn được nhận lại tiền, trong khi người thực sự
+ * móc ví là người mời lại không được giảm đồng nào.
+ *
+ * Chuyển THEO TỈ LỆ phần bị gánh, chứ không phải chuyển hết:
+ *
+ *   B đi 2 tăng, tăng 1 được A mời, tăng 2 tự trả
+ *   -> một nửa hoá đơn của B do A trả -> một nửa phần giảm trừ của B sang A
+ *
+ * Mời hết thì tỉ lệ bằng 1, chuyển trọn. Không ai mời thì tỉ lệ bằng 0, không
+ * có gì đổi — buổi không có chuyện mời nhau tính y như trước.
+ *
+ * Làm tròn chỉ dịch tiền giữa người này với người kia, không bao giờ làm tổng
+ * thay đổi: người mời cộng đúng bằng số người được mời bị trừ.
+ */
+function donGiamTruVeNguoiMoi(discount, goc, biGanh, phaiTra) {
+  for (const id of Object.keys(biGanh)) {
+    const nguoiMoi = Object.keys(biGanh[id]);
+    if (!nguoiMoi.length || !goc[id]) continue;
+
+    const tongBiGanh = nguoiMoi.reduce((n, who) => n + biGanh[id][who], 0);
+    const chuyen = Math.round((discount[id] || 0) * Math.min(1, tongBiGanh / goc[id]));
+    if (!chuyen) continue;
+
+    phaiTra[id] += chuyen; // bớt phần giảm trừ của người được mời
+    let conLai = chuyen;
+    nguoiMoi.forEach((who, i) => {
+      // Người cuối nhận hết phần còn lại, để tổng khớp tuyệt đối sau làm tròn.
+      const phan = i === nguoiMoi.length - 1
+        ? conLai
+        : Math.round(chuyen * (biGanh[id][who] / tongBiGanh));
+      conLai -= phan;
+      if (Object.hasOwn(phaiTra, who)) phaiTra[who] -= phan;
+    });
+  }
+}
+
+/**
  * Tính cho từng người: đã trả bao nhiêu, phải trả bao nhiêu, chênh lệch.
  *
  * Thứ tự các bước rất quan trọng, đổi thứ tự là sai tiền:
  *   1. Cộng tiền mỗi người đã đứng ra trả cho từng khoản chi
- *   2. Chia đều từng khoản chi cho những người tham gia khoản đó
- *   3. Trừ đều tổng tiền tài trợ vào phần phải trả của MỌI người
+ *   2. Chia đều từng khoản chi cho những người tham gia khoản đó, rồi dời
+ *      phần của người được mời sang người mời (xem roundShares)
+ *   3. Trừ đều tổng tiền tài trợ vào phần phải trả của MỌI người, rồi dồn
+ *      phần giảm trừ của người được mời sang người mời — không dồn thì người
+ *      được mời ra số âm, như thể họ được nhận lại tiền
  *   4. Người tài trợ bỏ tích "vẫn chia phần" -> miễn hẳn phần nhậu của họ
  *   5. Tài trợ đã hứa mà CHƯA đưa tiền -> cộng ngược khoản đó vào phần họ
  *      phải trả. Phải làm sau bước 4, nếu không khoản nợ này bị xoá mất.
@@ -47,14 +161,37 @@ export function computeSummary(ev) {
     phaiTra[p.id] = 0;
   }
 
+  /*
+   * Theo dõi mỗi người bị gánh mất bao nhiêu, và ai gánh — để bước 3 biết dồn
+   * phần giảm trừ tài trợ về đâu.
+   *   goc[B]       tổng phần của B trước khi bị gánh
+   *   biGanh[B]    { id người mời: số tiền họ đã gánh cho B }
+   */
+  const goc = {};
+  const biGanh = {};
+  for (const p of ev.people) {
+    goc[p.id] = 0;
+    biGanh[p.id] = {};
+  }
+
   // 1 + 2
   for (const r of ev.rounds) {
     if (r.nguoiTraId && Object.hasOwn(daTra, r.nguoiTraId)) {
       daTra[r.nguoiTraId] += r.soTien || 0;
     }
-    const joined = (r.thamGiaIds || []).filter((id) => Object.hasOwn(phaiTra, id));
-    const shares = distributeShares(r.soTien || 0, joined);
-    for (const id of Object.keys(shares)) phaiTra[id] += shares[id];
+
+    const ids = new Set(ev.people.map((p) => p.id));
+    const joined = (r.thamGiaIds || []).filter((id) => ids.has(id));
+    const truocKhiMoi = distributeShares(r.soTien || 0, joined);
+    for (const id of joined) goc[id] += truocKhiMoi[id];
+    for (const [duocMoi, nguoiMoi] of Object.entries(ganhHoHopLe(r, ids))) {
+      biGanh[duocMoi][nguoiMoi] = (biGanh[duocMoi][nguoiMoi] || 0) + truocKhiMoi[duocMoi];
+    }
+
+    const shares = roundShares(ev, r);
+    for (const id of Object.keys(shares)) {
+      if (Object.hasOwn(phaiTra, id)) phaiTra[id] += shares[id];
+    }
   }
 
   const sponsors = ev.sponsors || [];
@@ -65,6 +202,7 @@ export function computeSummary(ev) {
     const allIds = ev.people.map((p) => p.id);
     const discount = distributeShares(totalSponsor, allIds);
     for (const id of Object.keys(discount)) phaiTra[id] -= discount[id];
+    donGiamTruVeNguoiMoi(discount, goc, biGanh, phaiTra);
   }
 
   // 4

@@ -51,7 +51,124 @@ function roundCard(ev, r, index) {
     payerField(ev, r),
   ]);
 
-  return el('div', { class: 'round-card' }, [header, fields, participantChips(ev, r)]);
+  return el('div', { class: 'round-card' }, [header, fields, participantChips(ev, r), ganhHoBox(ev, r)]);
+}
+
+/**
+ * "Ai mời ai" trong khoản này.
+ *
+ * Phần của người được mời dồn sang người mời: khoản 900 có A, B, C mà A mời B
+ * thì A trả 600, C trả 300, B không phải trả.
+ *
+ * Giống chip người tham gia, chỗ này tự dựng lại DOM của riêng nó thay vì gọi
+ * renderRounds() — vẽ lại cả khoản sẽ làm mất con trỏ ở các ô đang gõ.
+ */
+function ganhHoBox(ev, r) {
+  // Bản sao riêng: effectiveEvent() trả về chính object đã lưu khi chưa có
+  // thay đổi nào chờ lưu, sửa thẳng vào đó là hỏng nút "Huỷ thay đổi".
+  let pairs = { ...(r.ganhHo || {}) };
+
+  const list = el('div', { class: 'ganh-ho-list' });
+  const note = el('span', { class: 'ganh-ho-note' });
+  const tenCua = (id) => ev.people.find((p) => p.id === id)?.name || '(đã xoá)';
+
+  const commit = () => {
+    editRound(r.id, { ganhHo: { ...pairs } });
+    drawList();
+  };
+
+  function drawList() {
+    list.innerHTML = '';
+    const entries = Object.entries(pairs);
+    if (!entries.length) {
+      list.append(el('span', { class: 'ganh-ho-empty', textContent: 'Chưa có ai mời ai.' }));
+      return;
+    }
+    for (const [duocMoi, nguoiMoi] of entries) {
+      const x = el('button', {
+        type: 'button',
+        class: 'chip-remove',
+        title: `Bỏ: ${tenCua(nguoiMoi)} mời ${tenCua(duocMoi)}`,
+        innerHTML: '<span class="icon-x">&#10005;</span>',
+        onclick: () => {
+          delete pairs[duocMoi];
+          commit();
+        },
+      });
+      list.append(
+        el('span', { class: 'chip ganh-ho-chip' }, [
+          el('span', { textContent: `${tenCua(nguoiMoi)} mời ${tenCua(duocMoi)}` }),
+          x,
+        ])
+      );
+    }
+  }
+
+  const selMoi = el('select', { class: 'ganh-ho-select' });
+  const selDuoc = el('select', { class: 'ganh-ho-select' });
+  for (const sel of [selMoi, selDuoc]) {
+    sel.append(el('option', { value: '', textContent: '— chọn —' }));
+    for (const p of ev.people) sel.append(el('option', { value: p.id, textContent: p.name }));
+  }
+
+  const addBtn = el('button', {
+    type: 'button',
+    class: 'btn btn-ghost btn-small',
+    textContent: 'Thêm',
+    onclick: () => {
+      const nguoiMoi = selMoi.value;
+      const duocMoi = selDuoc.value;
+      note.textContent = '';
+
+      /*
+       * Báo ngay tại chỗ thay vì để ganhHoHopLe() lặng lẽ bỏ cặp sai: người
+       * dùng bấm Thêm mà không thấy gì xảy ra thì không đoán ra vì sao.
+       */
+      if (!nguoiMoi || !duocMoi) return void (note.textContent = 'Chọn đủ cả hai người.');
+      if (nguoiMoi === duocMoi) return void (note.textContent = 'Không thể tự mời chính mình.');
+
+      /*
+       * Đọc lại danh sách người tham gia từ bản nháp, KHÔNG dùng `r` của lúc
+       * vẽ: bấm chip người tham gia chỉ ghi vào bản nháp chứ không vẽ lại
+       * khoản chi, nên `r.thamGiaIds` ở đây là ảnh chụp cũ. Dùng nó thì vừa bỏ
+       * tích một người xong vẫn mời được người đó.
+       */
+      const nay = effectiveEvent()?.rounds.find((x) => x.id === r.id) || r;
+      if (!nay.thamGiaIds.includes(duocMoi)) {
+        return void (note.textContent = `${tenCua(duocMoi)} chưa tích tham gia khoản này.`);
+      }
+      if (pairs[nguoiMoi]) {
+        return void (note.textContent = `${tenCua(nguoiMoi)} đang được người khác mời — không mời tiếp được.`);
+      }
+      if (Object.hasOwn(pairs, duocMoi)) {
+        return void (note.textContent = `${tenCua(duocMoi)} đã được ${tenCua(pairs[duocMoi])} mời rồi.`);
+      }
+      if (Object.values(pairs).includes(duocMoi)) {
+        return void (note.textContent = `${tenCua(duocMoi)} đang mời người khác — không được mời lại.`);
+      }
+
+      pairs[duocMoi] = nguoiMoi;
+      selMoi.value = '';
+      selDuoc.value = '';
+      commit();
+    },
+  });
+
+  drawList();
+
+  return el('div', { class: 'ganh-ho' }, [
+    // Lớp riêng, không dùng chung .participants-label: chỗ này không phải
+    // nhãn người tham gia, và dùng chung làm các selector tìm nhãn kia khớp cả hai.
+    el('span', { class: 'ganh-ho-label', textContent: 'Ai mời ai (trả hộ phần của người khác)' }),
+    list,
+    el('div', { class: 'ganh-ho-add' }, [
+      selMoi,
+      el('span', { class: 'ganh-ho-word', textContent: 'mời' }),
+      selDuoc,
+      addBtn,
+      note,
+    ]),
+  ]);
 }
 
 /** Ô chữ thường, cập nhật bản nháp ngay khi gõ. */
@@ -103,7 +220,8 @@ function moneyField(label, value, onChange) {
 }
 
 function payerField(ev, r) {
-  const select = el('select');
+  // Lớp riêng để phân biệt với hai ô chọn của mục "ai mời ai" bên dưới.
+  const select = el('select', { class: 'payer-select' });
 
   if (!ev.people.length) {
     select.append(el('option', { textContent: '— chưa có người —' }));

@@ -275,7 +275,8 @@
 @media (max-width: 760px) { .round-fields { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 480px) { .round-fields { grid-template-columns: 1fr; } }
 
-.participants-label {
+.participants-label,
+.ganh-ho-label {
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
@@ -286,6 +287,16 @@
 }
 
 .toggle-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Ai mời ai — tách khỏi chip người tham gia bằng một đường kẻ cho đỡ lẫn. */
+.ganh-ho { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.ganh-ho-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.ganh-ho-empty { font-size: 13px; color: var(--ink-faint); }
+.ganh-ho-chip { gap: 6px; }
+.ganh-ho-add { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.ganh-ho-select { max-width: 150px; }
+.ganh-ho-word { font-size: 13px; color: var(--ink-faint); }
+.ganh-ho-note { font-size: 13px; color: var(--danger, #b4232a); flex-basis: 100%; }
 
 .toggle-chip {
   font-size: 13px;
@@ -503,6 +514,16 @@ table.rounds-breakdown td.is-out { color: var(--ink-faint); }
 
 .amount-pos { color: var(--positive); }
 .amount-neg { color: var(--negative); }
+
+/* Ô "ai mời ai" trong bảng chia tiền. Tên người để dưới số cho khỏi vỡ cột. */
+.moi-tag {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+.is-moi { color: var(--ink-faint); }
 
 /* --------------------------------------------------------- chuyển khoản */
 

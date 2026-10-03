@@ -23,6 +23,7 @@ import {
 } from './client.js';
 import { currentIdentity } from './identity.js';
 import { today } from '../utils/format.js';
+import { ganhHoHopLe } from '../domain/settlement.js';
 
 /**
  * Ném lại lỗi Firebase kèm lời giải thích, thay vì nuốt đi rồi trả về rỗng.
@@ -77,7 +78,29 @@ export function cleanRound(r) {
     soTien: int(r.soTien),
     nguoiTraId: idOrNull(r.nguoiTraId),
     thamGiaIds: [...new Set((r.thamGiaIds || []).map(String))],
+    /*
+     * Ai mời ai trong khoản này: { id người được mời: id người mời }.
+     *
+     * Chiều này (được mời → người mời) chứ không phải chiều ngược lại, vì nó
+     * làm cho "một người không thể được hai người cùng mời" trở thành bất khả
+     * thi ngay từ hình dạng dữ liệu, khỏi phải viết kiểm tra.
+     *
+     * Để trên TỪNG khoản chứ không phải cả buổi: thực tế hay là "tăng 1 tôi
+     * mời, tăng 2 ai trả nấy", hoặc người được mời chỉ đi một vài tăng.
+     */
+    ganhHo: cleanGanhHo(r.ganhHo),
   };
+}
+
+/** Bỏ cặp rỗng và tự-mời-mình; Firestore từ chối `undefined` nên luôn trả object. */
+function cleanGanhHo(raw) {
+  const out = {};
+  for (const [duocMoi, nguoiMoi] of Object.entries(raw || {})) {
+    if (!duocMoi || !nguoiMoi) continue;
+    if (String(duocMoi) === String(nguoiMoi)) continue;
+    out[String(duocMoi)] = String(nguoiMoi);
+  }
+  return out;
 }
 
 export function cleanSponsor(s) {
@@ -130,6 +153,7 @@ function pruneDanglingRefs(ev) {
   for (const r of ev.rounds) {
     r.thamGiaIds = r.thamGiaIds.filter((id) => ids.has(id));
     if (r.nguoiTraId && !ids.has(r.nguoiTraId)) r.nguoiTraId = null;
+    r.ganhHo = ganhHoHopLe(r, ids);
   }
   for (const s of ev.sponsors) {
     if (s.personId && !ids.has(s.personId)) s.personId = null;

@@ -729,6 +729,104 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.close();
 }
 
+// ===== 2d5. ai mời ai: nhập trong khoản chi, hiện trong bảng, lưu xuống DB
+{
+  const { page, errors } = await openPage('index.html');
+  await page.click('.tab-btn[data-tab="edit"]');
+  await page.waitForTimeout(400);
+
+  const box = page.locator('#roundsList .round-card').first().locator('.ganh-ho');
+  const selects = box.locator('select');
+  const them = box.getByRole('button', { name: 'Thêm' });
+
+  check('khoản chi có mục "ai mời ai"', (await box.count()) === 1);
+  check('ban đầu chưa có cặp nào', (await box.locator('.ganh-ho-empty').count()) === 1);
+
+  // --- chặn các cặp vô nghĩa, và nói rõ vì sao
+  await selects.nth(0).selectOption({ label: 'ThangLV11' });
+  await selects.nth(1).selectOption({ label: 'ThangLV11' });
+  await them.click();
+  check('chặn tự mời chính mình', (await box.locator('.ganh-ho-note').textContent()).includes('chính mình'));
+
+  // p3 bị bỏ tích tham gia -> không mời được
+  const chipPhong = page.locator('#roundsList .round-card').first()
+    .locator('.toggle-chip', { hasText: 'PhongTH4' });
+  await chipPhong.click();
+  await page.waitForTimeout(200);
+  await selects.nth(1).selectOption({ label: 'PhongTH4' });
+  await them.click();
+  check('chặn mời người không tham gia khoản',
+    (await box.locator('.ganh-ho-note').textContent()).includes('chưa tích tham gia'));
+  await chipPhong.click();
+  await page.waitForTimeout(200);
+
+  // --- cặp hợp lệ: ThangLV11 mời HungNN14
+  await selects.nth(0).selectOption({ label: 'ThangLV11' });
+  await selects.nth(1).selectOption({ label: 'HungNN14' });
+  await them.click();
+  await page.waitForTimeout(300);
+  check('thêm được cặp mời hợp lệ',
+    (await box.locator('.ganh-ho-list').textContent()).includes('ThangLV11 mời HungNN14'),
+    await box.locator('.ganh-ho-list').textContent());
+  check('chỉ có đúng MỘT cặp — cặp bị chặn ở trên không lọt vào',
+    (await box.locator('.ganh-ho-chip').count()) === 1);
+
+  // --- chặn dây chuyền ngay lúc nhập
+  await selects.nth(0).selectOption({ label: 'HungNN14' });
+  await selects.nth(1).selectOption({ label: 'PhongTH4' });
+  await them.click();
+  check('chặn dây chuyền: người đang được mời thì không mời tiếp được',
+    (await box.locator('.ganh-ho-note').textContent()).includes('đang được người khác mời'));
+
+  // --- bảng tính theo đúng cách mời
+  await page.click('.tab-btn[data-tab="list"]');
+  await page.waitForTimeout(400);
+  const bang = await page.textContent('#resultsBody');
+  // Khoản mẫu 900, cả 3 cùng đi -> 300/người; ThangLV11 mời HungNN14 -> 600/0/300.
+  check('bảng: người mời gánh 2 phần', bang.includes('600'), bang.slice(0, 400));
+  check('bảng: ô người được mời ghi ai mời',
+    (await page.locator('#resultsBody .is-moi').first().textContent()).includes('ThangLV11 mời'),
+    await page.locator('#resultsBody .is-moi').first().textContent());
+  check('bảng: ô người mời ghi đang gánh cho ai',
+    (await page.locator('#resultsBody .is-ganh').first().textContent()).includes('HungNN14'));
+
+  // --- lưu xuống database
+  await page.click('#saveBtn');
+  await page.waitForTimeout(800);
+  const saved = await getDoc(page, 'events/e1');
+  check('lưu được cặp mời xuống database',
+    saved.rounds[0].ganhHo?.p2 === 'p1', JSON.stringify(saved.rounds[0].ganhHo));
+  check('nhập người mời không gây lỗi JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+// ===== 2d6. xoá người mời -> người được mời tự trả lại, không còn cặp treo
+{
+  const seed = structuredClone(SEED);
+  seed.docs['events/e1'].rounds[0].ganhHo = { p2: 'p1' };
+
+  const { page } = await openPage('index.html', { seed });
+  await page.click('.tab-btn[data-tab="list"]');
+  await page.waitForTimeout(400);
+  check('trước khi xoá: người mời gánh 2 phần',
+    (await page.textContent('#resultsBody')).includes('600'));
+
+  await page.click('.tab-btn[data-tab="edit"]');
+  await page.waitForTimeout(300);
+  await page.locator('#peopleList .chip', { hasText: 'ThangLV11' }).locator('.chip-remove').click();
+  await page.waitForTimeout(800);
+
+  const ev = await getDoc(page, 'events/e1');
+  check('xoá người mời -> dọn luôn cặp mời, không để trỏ tới người đã xoá',
+    Object.keys(ev.rounds[0].ganhHo || {}).length === 0, JSON.stringify(ev.rounds[0].ganhHo));
+
+  await page.click('.tab-btn[data-tab="list"]');
+  await page.waitForTimeout(400);
+  check('xoá người mời -> người được mời trả lại phần của mình (900/2 = 450)',
+    (await page.textContent('#resultsBody')).includes('450'));
+  await page.close();
+}
+
 // ====== 2e. buổi chưa chọn người chia tiền: ô phải để trống, phải nói rõ
 {
   const seed = structuredClone(SEED);
@@ -821,7 +919,7 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.click('.tab-btn[data-tab="edit"]');
   await page.waitForTimeout(300);
 
-  const payer2 = page.locator('#roundsList .round-card').nth(1).locator('select');
+  const payer2 = page.locator('#roundsList .round-card').nth(1).locator('.payer-select');
   check('khoản chưa chọn người trả -> ô để trống, KHÔNG tự hiện tên người đầu danh sách',
     (await payer2.inputValue()) === '', `ô đang hiện: ${await payer2.inputValue()}`);
   check('ô người trả có lựa chọn "chưa chọn"',

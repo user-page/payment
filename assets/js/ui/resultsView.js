@@ -12,7 +12,8 @@ import { fmtNum, escapeHtml, slugify } from '../utils/format.js';
 import {
   computeSummary,
   computeSettlement,
-  distributeShares,
+  roundShares,
+  ganhHoHopLe,
   remainingOf,
   unpaidSponsors,
   totalSpent,
@@ -47,6 +48,8 @@ function statStrip(ev) {
  * trả bao nhiêu cho từng tăng, nhìn dọc là biết một tăng chia cho những ai.
  *
  * Ô "—" nghĩa là người đó không tích tham gia tăng ấy, nên không phải trả.
+ * Ô "0" thì khác hẳn: có đi, nhưng được người khác mời nên không phải trả —
+ * tên người mời ghi ngay cạnh. Ô của người mời đã gồm cả phần họ gánh.
  *
  * Số trong ô là phần chia của tăng đó, chia đều cho những ai tham gia và làm
  * tròn xuống (xem distributeShares). Vì làm tròn xuống, cộng cột có thể hụt
@@ -63,10 +66,12 @@ function statStrip(ev) {
  */
 function roundsTable(ev, summary) {
   // Tính trước phần chia của từng tăng, tránh tính lại cho mỗi người.
-  const shares = ev.rounds.map((r) => {
-    const joined = (r.thamGiaIds || []).filter((id) => ev.people.some((p) => p.id === id));
-    return distributeShares(r.soTien || 0, joined);
-  });
+  // roundShares() dùng chung với computeSummary nên bảng không bao giờ lệch
+  // với cột "Còn phải trả" bên phải.
+  const shares = ev.rounds.map((r) => roundShares(ev, r));
+  const ids = new Set(ev.people.map((p) => p.id));
+  const ganhHo = ev.rounds.map((r) => ganhHoHopLe(r, ids));
+  const tenCua = (id) => ev.people.find((p) => p.id === id)?.name || '';
 
   // Đầu cột chỉ ghi tên tăng cho gọn. Ai trả khoản nào xem ở tab Chỉnh sửa;
   // nhồi thêm ngày, địa điểm, người trả vào đây làm bảng rối mà ít ai đọc.
@@ -80,6 +85,20 @@ function roundsTable(ev, summary) {
         .map((r, i) => {
           const v = shares[i][p.id];
           if (v === undefined) return '<td class="num is-out">—</td>';
+
+          // Được người khác mời: 0, và nói rõ ai mời — khác hẳn "—" (không đi).
+          const nguoiMoi = ganhHo[i][p.id];
+          if (nguoiMoi) {
+            return `<td class="num is-moi" title="${escapeHtml(tenCua(nguoiMoi))} trả hộ">0 <span class="moi-tag">${escapeHtml(tenCua(nguoiMoi))} mời</span></td>`;
+          }
+
+          // Đang gánh cho ai đó: số đã gồm cả phần của họ.
+          const ganhCho = Object.keys(ganhHo[i]).filter((id) => ganhHo[i][id] === p.id);
+          if (ganhCho.length) {
+            const ten = ganhCho.map(tenCua).join(', ');
+            return `<td class="num is-ganh" title="Gồm cả phần của ${escapeHtml(ten)}">${fmtNum(v)} <span class="moi-tag">+${escapeHtml(ten)}</span></td>`;
+          }
+
           return `<td class="num">${fmtNum(v)}</td>`;
         })
         .join('');
