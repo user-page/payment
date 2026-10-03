@@ -13,7 +13,6 @@ import {
   computeSummary,
   computeSettlement,
   roundShares,
-  ganhHoHopLe,
   remainingOf,
   unpaidSponsors,
   totalSpent,
@@ -47,9 +46,12 @@ function statStrip(ev) {
  * Mỗi NGƯỜI một dòng, mỗi TĂNG một cột — nhìn ngang là biết một người phải
  * trả bao nhiêu cho từng tăng, nhìn dọc là biết một tăng chia cho những ai.
  *
- * Ô "—" nghĩa là người đó không tích tham gia tăng ấy, nên không phải trả.
- * Ô "0" thì khác hẳn: có đi, nhưng được người khác mời nên không phải trả —
- * tên người mời ghi ngay cạnh. Ô của người mời đã gồm cả phần họ gánh.
+ * Ô "—" nghĩa là tăng ấy người đó không phải trả gì: hoặc không tham gia,
+ * hoặc có đi nhưng được người khác mời. Ô của người mời đã gồm cả phần họ
+ * gánh, nên cộng ngang vẫn ra đúng số tiền của tăng.
+ *
+ * Người không dính dáng gì tới tiền nong thì KHÔNG hiện dòng (xem dinhToiTien
+ * bên dưới) — bảng chỉ nói chuyện tiền, dòng toàn số 0 chỉ làm rối.
  *
  * Số trong ô là phần chia của tăng đó, chia đều cho những ai tham gia và làm
  * tròn xuống (xem distributeShares). Vì làm tròn xuống, cộng cột có thể hụt
@@ -69,9 +71,6 @@ function roundsTable(ev, summary) {
   // roundShares() dùng chung với computeSummary nên bảng không bao giờ lệch
   // với cột "Còn phải trả" bên phải.
   const shares = ev.rounds.map((r) => roundShares(ev, r));
-  const ids = new Set(ev.people.map((p) => p.id));
-  const ganhHo = ev.rounds.map((r) => ganhHoHopLe(r, ids));
-  const tenCua = (id) => ev.people.find((p) => p.id === id)?.name || '';
 
   // Đầu cột chỉ ghi tên tăng cho gọn. Ai trả khoản nào xem ở tab Chỉnh sửa;
   // nhồi thêm ngày, địa điểm, người trả vào đây làm bảng rối mà ít ai đọc.
@@ -79,26 +78,30 @@ function roundsTable(ev, summary) {
     .map((r, i) => `<th class="num">${escapeHtml(r.ten || `Khoản ${i + 1}`)}</th>`)
     .join('');
 
-  const body = ev.people
+  /*
+   * Bỏ hẳn dòng của người không dính dáng gì tới tiền nong: không phải trả,
+   * không ứng cho ai, không có phần nào trong bất kỳ tăng nào. Hay gặp nhất là
+   * người được mời cả buổi, và người lỡ thêm tên vào mà chưa tích tăng nào —
+   * một dòng toàn số 0 chỉ làm người đọc dừng lại hỏi "sao lại 0?".
+   *
+   * Tổng ở chân bảng vẫn cộng trên TOÀN BỘ người, không phải chỉ người hiện ra,
+   * nên giấu dòng không bao giờ làm tổng sai.
+   */
+  const dinhToiTien = (p) =>
+    (summary.phaiTra[p.id] || 0) !== 0
+    || (summary.daTra[p.id] || 0) !== 0
+    || shares.some((s) => (s[p.id] || 0) !== 0);
+
+  const hienThi = ev.people.filter(dinhToiTien);
+
+  const body = hienThi
     .map((p) => {
       const cells = ev.rounds
         .map((r, i) => {
           const v = shares[i][p.id];
-          if (v === undefined) return '<td class="num is-out">—</td>';
-
-          // Được người khác mời: 0, và nói rõ ai mời — khác hẳn "—" (không đi).
-          const nguoiMoi = ganhHo[i][p.id];
-          if (nguoiMoi) {
-            return `<td class="num is-moi" title="${escapeHtml(tenCua(nguoiMoi))} trả hộ">0 <span class="moi-tag">${escapeHtml(tenCua(nguoiMoi))} mời</span></td>`;
-          }
-
-          // Đang gánh cho ai đó: số đã gồm cả phần của họ.
-          const ganhCho = Object.keys(ganhHo[i]).filter((id) => ganhHo[i][id] === p.id);
-          if (ganhCho.length) {
-            const ten = ganhCho.map(tenCua).join(', ');
-            return `<td class="num is-ganh" title="Gồm cả phần của ${escapeHtml(ten)}">${fmtNum(v)} <span class="moi-tag">+${escapeHtml(ten)}</span></td>`;
-          }
-
+          // Không đi, hoặc có đi mà được người khác mời nên không phải trả —
+          // cả hai đều để dấu "—": cột này trả lời "phải trả bao nhiêu".
+          if (!v) return '<td class="num is-out">—</td>';
           return `<td class="num">${fmtNum(v)}</td>`;
         })
         .join('');
@@ -115,7 +118,10 @@ function roundsTable(ev, summary) {
         <td class="num col-sum ${conCls}">${fmtNum(con)}</td>
       </tr>`;
     })
-    .join('');
+    .join('')
+    // Mọi người đều 0 (VD các khoản còn để trống): nói thẳng, đừng để bảng
+    // rỗng không giải thích gì khiến người dùng tưởng mất dữ liệu.
+    || `<tr><td colspan="${ev.rounds.length + 3}" class="is-out">Chưa ai phải trả gì.</td></tr>`;
 
   const perRound = ev.rounds.map((r) => `<td class="num">${fmtNum(r.soTien || 0)}</td>`).join('');
 

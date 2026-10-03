@@ -515,16 +515,6 @@ table.rounds-breakdown td.is-out { color: var(--ink-faint); }
 .amount-pos { color: var(--positive); }
 .amount-neg { color: var(--negative); }
 
-/* Ô "ai mời ai" trong bảng chia tiền. Tên người để dưới số cho khỏi vỡ cột. */
-.moi-tag {
-  display: block;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--ink-faint);
-  white-space: nowrap;
-}
-.is-moi { color: var(--ink-faint); }
-
 /* --------------------------------------------------------- chuyển khoản */
 
 .settlement-section { margin-top: 22px; }

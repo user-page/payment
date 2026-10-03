@@ -784,11 +784,21 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   const bang = await page.textContent('#resultsBody');
   // Khoản mẫu 900, cả 3 cùng đi -> 300/người; ThangLV11 mời HungNN14 -> 600/0/300.
   check('bảng: người mời gánh 2 phần', bang.includes('600'), bang.slice(0, 400));
-  check('bảng: ô người được mời ghi ai mời',
-    (await page.locator('#resultsBody .is-moi').first().textContent()).includes('ThangLV11 mời'),
-    await page.locator('#resultsBody .is-moi').first().textContent());
-  check('bảng: ô người mời ghi đang gánh cho ai',
-    (await page.locator('#resultsBody .is-ganh').first().textContent()).includes('HungNN14'));
+
+  /*
+   * Người được mời không phải trả gì cả buổi -> không hiện dòng. Bảng chỉ nói
+   * chuyện tiền; một dòng toàn số 0 chỉ làm người đọc dừng lại hỏi "sao lại 0?".
+   */
+  const tenTrongBang = await page.locator('#resultsBody tbody tr td:first-child').allTextContents();
+  check('bảng: bỏ hẳn dòng của người được mời (không phải trả gì)',
+    !tenTrongBang.some((t) => t.includes('HungNN14')), JSON.stringify(tenTrongBang));
+  check('bảng: người mời và người tự trả vẫn còn dòng',
+    tenTrongBang.some((t) => t.includes('ThangLV11')) && tenTrongBang.some((t) => t.includes('PhongTH4')),
+    JSON.stringify(tenTrongBang));
+  check('bảng: không còn ghi chú "mời" trong ô',
+    !bang.includes('ThangLV11 mời') && !bang.includes('+HungNN14'), bang.slice(0, 400));
+  check('bảng: cộng ngang vẫn ra đủ tiền của tăng (600 + 300 = 900)',
+    bang.includes('600') && bang.includes('300'));
 
   // --- lưu xuống database
   await page.click('#saveBtn');
@@ -824,6 +834,42 @@ const getDoc = (page, path) => page.evaluate((p) => structuredClone(window.__doc
   await page.waitForTimeout(400);
   check('xoá người mời -> người được mời trả lại phần của mình (900/2 = 450)',
     (await page.textContent('#resultsBody')).includes('450'));
+  await page.close();
+}
+
+// ===== 2d7. giấu dòng: giấu đúng người, và ô trống không kèm chữ gì
+{
+  /*
+   * Khối 2d5 không với tới được hai đường này: ở đó mọi người đều tham gia
+   * khoản duy nhất, nên không có ô "—" nào được vẽ, và ai ứng tiền cũng đều
+   * còn phải trả. Thiếu khối này thì bỏ chốt daTra hay nhét chữ vào ô "—" đều
+   * lọt qua (đã thử bằng cách sửa hỏng có chủ ý).
+   */
+  const seed = structuredClone(SEED);
+  seed.docs['events/e1'].people.push({ id: 'p4', name: 'DaiNV4', hasQr: false, isPaid: false, paidAmount: 0 });
+  seed.docs['events/e1'].rounds[0].ganhHo = { p2: 'p1' };
+  seed.docs['events/e1'].rounds.push({
+    id: 'r2', ten: 'Tăng 2', ngay: '2026-09-20', diaDiem: 'Karaoke',
+    soTien: 600, nguoiTraId: 'p4', thamGiaIds: ['p1'],
+  });
+
+  const { page } = await openPage('index.html', { seed });
+  await page.click('.tab-btn[data-tab="list"]');
+  await page.waitForTimeout(500);
+
+  const ten = await page.locator('#resultsBody tbody tr td:first-child').allTextContents();
+  check('giấu người được mời cả buổi (không trả, không ứng)',
+    !ten.some((t) => t.includes('HungNN14')), JSON.stringify(ten));
+
+  // DaiNV4 trả khoản mình không dự: còn phải trả = 0 nhưng đã ứng 600.
+  check('KHÔNG giấu người có ứng tiền dù không phải trả gì',
+    ten.some((t) => t.includes('DaiNV4')), JSON.stringify(ten));
+
+  // PhongTH4 có dự tăng 1, không dự tăng 2 -> ô tăng 2 phải là dấu "—" trơn.
+  const oTrong = await page.locator('#resultsBody tbody tr', { hasText: 'PhongTH4' })
+    .locator('td.is-out').allTextContents();
+  check('ô không phải trả chỉ có dấu "—", không kèm chữ gì',
+    oTrong.length > 0 && oTrong.every((t) => t.trim() === '—'), JSON.stringify(oTrong));
   await page.close();
 }
 
